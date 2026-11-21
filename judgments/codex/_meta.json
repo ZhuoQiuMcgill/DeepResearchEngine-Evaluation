@@ -1,0 +1,11 @@
+{
+  "branch": "codex",
+  "tool": "Codex",
+  "coordinator_model": "gpt-6.2-astra",
+  "subagent_model": "gpt-6.2-astra",
+  "subagents_used": true,
+  "started_utc": "2026-11-21T07:47:40Z",
+  "finished_utc": "2026-11-21T08:15:04Z",
+  "regraded": [],
+  "notes": "Each pair was graded in a fresh Codex context. P01, P02, P03 and P05 used desktop subagents. The other pairs used noninteractive Codex workers whose JSON Lines output was routed to the assigned file. The first P04 worker reported that it could not save a file, so a fresh worker completed that pair. Validation required no criterion-level regrades."
+}
