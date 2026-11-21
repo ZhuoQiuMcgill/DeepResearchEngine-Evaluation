@@ -1,0 +1,7 @@
+judge_a,judge_b,exact_agreement,cohen_kappa,linear_weighted_kappa,report_score_r
+claude-code,claude-code-fable,0.9101,0.849,0.8893,0.9453
+claude-code,codex,0.8441,0.728,0.7741,0.8581
+claude-code,antigravity,0.8429,0.7421,0.8026,0.9532
+claude-code-fable,codex,0.8177,0.6892,0.7446,0.8095
+claude-code-fable,antigravity,0.8585,0.7715,0.818,0.9387
+codex,antigravity,0.7842,0.6427,0.7187,0.8724
