@@ -1,0 +1,11 @@
+{
+  "branch": "antigravity",
+  "tool": "Antigravity",
+  "coordinator_model": "Gemini 4 Neon (High)",
+  "subagent_model": "Gemini 4 Neon (High)",
+  "subagents_used": true,
+  "started_utc": "2026-11-21T21:39:55Z",
+  "finished_utc": "2026-11-21T22:04:02Z",
+  "regraded": [],
+  "notes": "All 18 pairs were graded by independent subagents (Model: inherit) and passed validation on the first pass with 0 errors and 1 warning (P02 line 31). Subagents did not have the exact model label in their environment and self-reported guesses (mostly Gemini 3.1 Pro, one Claude Opus 4.6), though all inherited the coordinator model Gemini 4 Neon (High)."
+}
