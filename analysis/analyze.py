@@ -119,6 +119,161 @@ def fmt(x, nd=3):
     return "–" if x is None else f"{x:+.{nd}f}" if isinstance(x, float) and x < 0 else f"{x:.{nd}f}" if isinstance(x, float) else str(x)
 
 
+MODEL_SHORT = {"haiku": "Haiku", "luna": "Luna", "deepseek": "DeepSeek"}
+PIPES = ["baseline", "ebd"]
+PIPE_LABEL = {"baseline": "Baseline", "ebd": "EBD"}
+# Criteria whose answer has to be derived (an estimate, a forecast, a verdict) rather than found in a source.
+COMMIT = [("Q5", 6, "Gives a definitive yes or no"), ("Q5", 20, "Includes equations or proofs"),
+          ("Q3", 3, "Shows at least 4 intermediate calculations"), ("Q3", 8, "Estimates the cost of opening the branch"),
+          ("Q4", 21, "Framework has at least 2 quantifiable metrics"), ("Q4", 22, "Applies the framework to several current states"),
+          ("Q6", 8, "Gives a budget or cost analysis")]
+
+
+def within_corr(rows, key, value):
+    """Pearson r between key and value after removing each (question, pipeline) group's mean."""
+    groups = defaultdict(list)
+    for r in rows:
+        groups[(r["q"], r["pipeline"])].append(r)
+    xs, ys = [], []
+    for g in groups.values():
+        mk, mv = statistics.mean(r[key] for r in g), statistics.mean(r[value] for r in g)
+        xs += [r[key] - mk for r in g]
+        ys += [r[value] - mv for r in g]
+    return pearson(xs, ys)
+
+
+def model_gap_section(md, runs, rubrics, grades, scores):
+    """Section 7: how far apart the three models score under the same pipeline, and what goes with it."""
+    cell = {(r["rubric_id"], r["pipeline"], r["model"]): rid for rid, r in runs.items()}
+    score = lambda rid, judges=PRIMARY: statistics.mean(scores[(j, rid)]["total"] for j in judges)
+    verdict = lambda rid, i: statistics.mean(grades[(j, rid, i)] for j in PRIMARY)
+    qs = sorted(rubrics)
+    best = lambda vals: max(vals.values())
+    bold = lambda x, top, nd=3: f"**{x:.{nd}f}**" if x == top else f"{x:.{nd}f}"
+
+    md += ["## 7. Same pipeline, different model", "",
+           "Each model's score on each question with each pipeline (primary mean of three judges). **Bold**: the best "
+           "model on that question and pipeline. Gap: best minus worst. DeepSeek ran under its own conditions (see the "
+           "limits at the top), so here \"DeepSeek\" means the model together with its deep search and round cap.", "",
+           "| Question | " + " | ".join(f"{PIPE_LABEL[p]} {MODEL_SHORT.get(m, m)}" for p in PIPES for m in MODELS + ["gap"]) + " |",
+           "|---|" + "---|" * (len(PIPES) * (len(MODELS) + 1))]
+    gap_rows, gaps = [], {p: [] for p in PIPES}
+    for q in qs:
+        cells = []
+        for p in PIPES:
+            vals = {m: score(cell[(q, p, m)]) for m in MODELS}
+            g = best(vals) - min(vals.values())
+            gaps[p].append(g)
+            gap_rows.append({"rubric_id": q, "pipeline": p, **vals, "gap": g, "best": max(vals, key=vals.get)})
+            cells += [bold(vals[m], best(vals)) for m in MODELS] + [f"{g:.3f}"]
+        md.append(f"| {q} | " + " | ".join(cells) + " |")
+    cells = []
+    for p in PIPES:
+        vals = {m: statistics.mean(score(cell[(q, p, m)]) for q in qs) for m in MODELS}
+        cells += [bold(vals[m], best(vals)) for m in MODELS] + [f"{statistics.mean(gaps[p]):.3f}"]
+    md += [f"| Mean | " + " | ".join(cells) + " |", "",
+           "Mean row: each model's mean over the six questions; its gap column is the mean of the six gaps.", ""]
+
+    # Which gaps hold up: same leader in both pipelines (two separate runs) under every primary judge.
+    stable, same_order = [], []
+    for q in qs:
+        leaders = set()
+        for p in PIPES:
+            for j in PRIMARY:
+                vals = {m: scores[(j, cell[(q, p, m)])]["total"] for m in MODELS}
+                leaders.add(max(vals, key=vals.get))
+        if len(leaders) == 1:
+            stable.append(f"{q} ({MODEL_SHORT[leaders.pop()]})")
+        orders = {tuple(sorted(MODELS, key=lambda m: score(cell[(q, p, m)]))) for p in PIPES}
+        if len(orders) == 1:
+            same_order.append(q)
+    unstable = [q for q in qs if not any(s.startswith(q) for s in stable)]
+    md += [f"The same model leads in both pipelines under every primary judge on {', '.join(stable) or 'no question'}. "
+           f"The full order of the three models is the same in both pipelines on {', '.join(same_order) or 'no question'}. "
+           f"On {', '.join(unstable)} the leader changes between pipelines or judges, so most of those gaps are run-to-run "
+           "variation; with one run per cell the data cannot separate them further.", ""]
+
+    # Run profile by model.
+    rows = []
+    for rid, r in runs.items():
+        rows.append({"q": r["rubric_id"], "pipeline": r["pipeline"], "model": r["model"], "score": score(rid),
+                     "words": int(r["report_words"]), "pages": int(r["page_reads"]), "searches": int(r["searches"]),
+                     "notes": int(r["researcher_output_tokens"]), "writer_in": int(r["writer_input_tokens"]),
+                     "urls": int(r["report_urls"]), "unreported": int(r["report_urls_unreported"]),
+                     "cost": float(r["cost_usd"]), "time": int(r["duration_s"])})
+    md += ["### Run profile by model (mean of 12 runs, both pipelines)", "",
+           "| Model | Mean score | Report words | Pages opened | Searches | Researcher notes (tokens) | Writer input (tokens) | Report URLs (unreported by tools) | Cost (USD) | Time (min) |",
+           "|---|---|---|---|---|---|---|---|---|---|"]
+    prof = {}
+    for m in MODELS:
+        rs = [r for r in rows if r["model"] == m]
+        a = {k: statistics.mean(r[k] for r in rs) for k in ("score", "words", "pages", "searches", "notes", "writer_in", "cost", "time")}
+        prof[m] = a
+        md.append(f"| {MODEL_LABEL[m]} | {a['score']:.3f} | {a['words']:,.0f} | {a['pages']:.0f} | {a['searches']:.0f} | "
+                  f"{a['notes'] / 1000:.1f}k | {a['writer_in'] / 1000:.1f}k | {sum(r['urls'] for r in rs)} "
+                  f"({sum(r['unreported'] for r in rs)}) | {a['cost']:.3f} | {a['time'] / 60:.1f} |")
+    md += ["", "Pages opened: pages the researchers' search tools read in full (DeepSeek's deep search opens pages by itself). "
+           "Unreported URLs: links in the report that the search tools never returned.", "",
+           "Correlation with the score within the same question and pipeline (each group's mean removed, 36 reports):", ""]
+    md += ["| Measure | r |", "|---|---|"] + [f"| {label} | {within_corr(rows, k, 'score'):+.2f} |" for k, label in
+                                              [("words", "Report words"), ("pages", "Pages opened"),
+                                               ("notes", "Researcher notes (tokens)"), ("writer_in", "Writer input (tokens)")]]
+    md += ["", "These measures move together with the model (DeepSeek is high on all of them), so a correlation here does "
+           "not separate the measure from the model.", ""]
+
+    # Criteria that need a derived answer.
+    md += ["### Criteria that need a derived answer", "",
+           "Verdicts averaged over the three primary judges (1 satisfied, 0.5 partially, 0 not), in the order Haiku / Luna / "
+           "DeepSeek. **Bold**: the highest in that pipeline.", "",
+           "| Question | # | Criterion | Weight | Baseline | EBD |", "|---|---|---|---|---|---|"]
+    for q, i, label in COMMIT:
+        cells = []
+        for p in PIPES:
+            vals = {m: verdict(cell[(q, p, m)], i) for m in MODELS}
+            cells.append(" / ".join(bold(vals[m], best(vals), 2) for m in MODELS))
+        md.append(f"| {q} | {i} | {label} | {rubrics[q][i]['weight']:+g} | {cells[0]} | {cells[1]} |")
+    md.append("")
+
+    # Reading.
+    g = {(r["rubric_id"], r["pipeline"]): r["gap"] for r in gap_rows}
+    w = {(r["q"], r["pipeline"], r["model"]): r for r in rows}
+    q6d, q6l = w[("Q6", "baseline", "deepseek")], w[("Q6", "baseline", "luna")]
+    change = lambda q: f"{q} {g[(q, 'baseline')]:.3f} → {g[(q, 'ebd')]:.3f}"
+    md += ["### Why the gaps appear", "",
+           "Interpretation of the tables above; the reports quoted are in `reports/`.", "",
+           "1. **Committing to an answer no source states.** Q3 asks for revenue estimates, Q4 for a forecast of future "
+           "revolutions, Q5 to \"prove definitely\". The answer has to be derived, and the criteria in the table above carry "
+           "heavy weight for that step. The shared writer prompt (`src/writer/writer.ts` in the engine) says a number "
+           "without a source URL \"must not appear in the report\", that \"five well-sourced claims beat twenty half-sourced "
+           "ones\", and asks the writer to be \"epistemically honest\". Haiku and Luna mostly hold back under these rules "
+           "(Luna on estimates and forecasts, Haiku on the Q5 verdict); DeepSeek derives the figure and shows how. "
+           "Haiku's Q5 baseline report (R967ed13f) says no formal result establishes the guarantee and none proves the "
+           "opposite \"in full generality\"; DeepSeek's "
+           "(R4141c12b) opens with \"Verdict: no unconditional mathematical guarantee exists\". Luna's Q4 baseline report "
+           "(R6b7b9320) offers \"conditional scenarios, not forecasts about a specific country or date\"; DeepSeek's "
+           "(R0b63ad33) applies its framework to named countries with probabilities. Luna's Q6 baseline report (Rc4b44883) "
+           "says no cost estimate \"follows from a daily-user target alone\". Exceptions: Haiku does show its Q3 "
+           "calculations, and with EBD Luna applies the Q4 framework more fully than DeepSeek. The judges grade against "
+           "the rubric and do not check facts, so a committed estimate earns its points whether or not it is right.",
+           f"2. **Length and coverage.** Most criteria ask whether the report includes something. DeepSeek writes "
+           f"{prof['deepseek']['words']:,.0f} words on average, Haiku {prof['haiku']['words']:,.0f}, Luna "
+           f"{prof['luna']['words']:,.0f}, and within a question and pipeline longer reports score higher (table above). "
+           f"Q6, whose rubric has {len(rubrics['Q6'])} criteria, is the clearest case: with the baseline DeepSeek's "
+           f"{q6d['words']:,}-word report scores {q6d['score']:.3f} and Luna's {q6l['words']:,}-word report {q6l['score']:.3f}.",
+           f"3. **Each model brings its own search tool.** The pipeline fixes the steps, not the search: every researcher "
+           f"uses its provider's built-in web search. DeepSeek opens about {prof['deepseek']['pages']:.0f} pages per run, "
+           f"Luna {prof['luna']['pages']:.0f} and Haiku {prof['haiku']['pages']:.0f}; Luna returns the fewest notes, so its "
+           "writer gets about half the material of the other two and writes the shortest reports. Evidence is not the "
+           "whole story: in the engine's run records, Haiku's Q5 notes cover inverse reinforcement learning in both runs and "
+           "Rice's theorem in the EBD run (criteria 9 and 1), and neither Haiku report mentions either.",
+           f"4. **EBD narrows coverage gaps, not commitment gaps.** The mean gap is {statistics.mean(gaps['baseline']):.3f} "
+           f"with the baseline and {statistics.mean(gaps['ebd']):.3f} with EBD. It shrinks on {change('Q1')}, "
+           f"{change('Q4')} and {change('Q6')}, where EBD's suggested outline of the question's parts likely makes every "
+           f"model cover them, and barely moves on {change('Q3')} and {change('Q5')}: an outline lists the parts but does "
+           "not make a model commit to a number or a verdict.", ""]
+    return gap_rows
+
+
 def main():
     import sys
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -301,9 +456,11 @@ def main():
                       f"{avg('cost_usd'):.3f} | {avg('duration_s'):.0f} |")
     md.append("")
 
+    gap_rows = model_gap_section(md, runs, rubrics, grades, scores)
+
     (ROOT / "analysis" / "results.md").write_text("\n".join(md), encoding="utf-8", newline="\n")
     json.dump({"pair_rows": pair_rows, "axis_rows": axis_rows, "agree_rows": agree_rows, "alpha": alpha, "alpha4": alpha4,
-               "summary_rows": [r[:6] + [list(r[6])] + r[7:] for r in summary_rows]},
+               "gap_rows": gap_rows, "summary_rows": [r[:6] + [list(r[6])] + r[7:] for r in summary_rows]},
               open(OUT / "summary.json", "w", encoding="utf-8"), indent=1, default=float)
     print("\n".join(md))
 
