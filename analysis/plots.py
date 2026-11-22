@@ -56,7 +56,7 @@ def heatmap():
             v = r["diff_mean"]
             ax.add_patch(plt.Rectangle((x - 0.48, y - 0.47), 0.96, 0.94, color=DIVERGING(norm(v)), lw=0))
             ax.text(x, y - 0.08, f"{v:+.3f}", ha="center", va="center", fontsize=10, fontweight="bold", color=ink_on(v, vmax))
-            ax.text(x, y + 0.24, f"{r['judges_ebd_higher']}/4 judges", ha="center", va="center", fontsize=7.5, color=ink_on(v, vmax))
+            ax.text(x, y + 0.24, f"{r['judges_ebd_higher']}/3 judges", ha="center", va="center", fontsize=7.5, color=ink_on(v, vmax))
     ax.set_xlim(-0.6, 2.85)
     ax.set_ylim(len(qs) - 0.5, -0.5)
     ax.set_xticks(xs, [MODEL_LABEL[m] for m in models])
@@ -68,7 +68,7 @@ def heatmap():
     cb = fig.colorbar(sm, ax=ax, fraction=0.04, pad=0.03)
     cb.set_label("EBD − baseline (score)", color=INK2)
     cb.outline.set_visible(False)
-    ax.set_title("EBD − baseline, mean of four judges\nblue: EBD scored higher · red: baseline scored higher", pad=34, fontsize=10.5)
+    ax.set_title("EBD − baseline, mean of Fable 5.2, Astra and Neon\nblue: EBD scored higher · red: baseline scored higher", pad=34, fontsize=10.5)
     fig.tight_layout()
     fig.savefig(FIG / "1_matrix_ebd_minus_baseline.png", dpi=200)
     plt.close(fig)
@@ -77,13 +77,13 @@ def heatmap():
 def per_judge():
     rows = S["summary_rows"]  # [group, judge, n, ebd, base, diff, [lo, hi], higher, lower, p]
     groups = list(dict.fromkeys(r[0] for r in rows))
-    fig, axes = plt.subplots(1, len(groups), figsize=(9, 3.4), sharex=True)
+    fig, axes = plt.subplots(1, len(groups), figsize=(11, 4.0), sharex=True, sharey=True)
     for ax, g in zip(axes, groups):
         rs = [r for r in rows if r[0] == g]
         labels = [r[1] for r in rs]
         for y, r in enumerate(rs):
             lo, hi = r[6]
-            strong = r[1] == "Judge mean"
+            strong = r[1].startswith("Primary")
             ax.plot([lo, hi], [y, y], color=BLUE, lw=2, solid_capstyle="round")
             ax.plot([r[5]], [y], "o", ms=8 if strong else 7, color=BLUE if strong else SURFACE,
                     markeredgecolor=BLUE, markeredgewidth=2)
@@ -91,13 +91,13 @@ def per_judge():
         ax.axvline(0, color=BASE, lw=1)
         ax.set_yticks(range(len(rs)), labels)
         ax.set_ylim(len(rs) - 0.5, -0.6)
-        ax.tick_params(axis="y", length=0)
+        ax.tick_params(axis="y", length=0, labelleft=ax is axes[0])
         ax.grid(axis="x", color=GRID, lw=0.8)
         ax.set_axisbelow(True)
         strip(ax)
         ax.set_title(g, fontsize=10)
         ax.set_xlabel("Mean EBD − baseline, 95% bootstrap CI over pairs")
-    axes[0].set_xlim(-0.16, 0.30)
+    axes[0].set_xlim(-0.16, 0.42)
     fig.suptitle("Every judge places EBD ahead in the main comparison; DeepSeek is level", x=0.01, ha="left", fontweight="bold", fontsize=11)
     fig.tight_layout()
     fig.savefig(FIG / "2_per_judge_mean_diff.png", dpi=200)
@@ -155,7 +155,7 @@ def agreement():
     ax.tick_params(length=0)
     ax.xaxis.tick_top()
     strip(ax, keep=())
-    ax.set_title(f"Agreement between judges over 834 gradings\nCohen's κ; Krippendorff's α across all four = {S['alpha']:.2f}", pad=30, fontsize=10.5)
+    ax.set_title(f"Agreement between judges over 834 gradings (Cohen's κ)\nKrippendorff's α: {S['alpha']:.2f} for Fable, Astra, Neon · {S['alpha4']:.2f} with Opus", pad=30, fontsize=10.5)
     fig.tight_layout()
     fig.savefig(FIG / "4_judge_agreement.png", dpi=200)
     plt.close(fig)
