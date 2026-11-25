@@ -6,8 +6,9 @@ Prompts and Rubrics for Evaluating Deep Research Agents** (Sharma et al., 2025;
 [ScaleAI/researchrubrics](https://huggingface.co/datasets/ScaleAI/researchrubrics); code:
 [scaleapi/researchrubrics](https://github.com/scaleapi/researchrubrics)). The grading
 instructions in `RULES.md` adapt the benchmark's released grading prompt from two levels
-to three. Only the criterion texts, axes and weights are used; the request texts are not
-included here.
+to three. For the judging itself only the criterion texts, axes and weights were used; the
+request texts were not part of what the judges saw. This branch adds the six request texts
+and their labels, unchanged, in `analysis/explorer/questions.json` for the results page.
 
 The benchmark is released under the MIT License, reproduced as published:
 

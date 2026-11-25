@@ -1,0 +1,902 @@
+<title>EBD vs Baseline Scores</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: one scrolling report — summary matrix first, then the six questions, then the
+   selected question's scores and its rubric line by line. Blue = EBD, orange = baseline. */
+:root {
+  --bg: #f5f6f8; --surface: #ffffff; --sunk: #eef0f3; --line: #dde1e7;
+  --ink: #12161c; --ink-2: #48505c; --muted: #7b8391;
+  --ebd: #2a6fd0; --ebd-soft: #dce9fb; --base: #d2601d; --base-soft: #fbe5d8;
+  --neg: #c33b3b;
+  --seq: #5b34a8; --v-on: #ffffff;
+  --v1: color-mix(in srgb, var(--seq) 16%, var(--surface)); --v2: color-mix(in srgb, var(--seq) 30%, var(--surface));
+  --v3: color-mix(in srgb, var(--seq) 43%, var(--surface)); --v4: color-mix(in srgb, var(--seq) 55%, var(--surface));
+  --v5: color-mix(in srgb, var(--seq) 68%, var(--surface)); --v6: color-mix(in srgb, var(--seq) 82%, var(--surface));
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12151a; --surface: #1a1e25; --sunk: #222731; --line: #2e3440;
+  --ink: #eef1f5; --ink-2: #b7bfcb; --muted: #8a93a1;
+  --ebd: #5a9bf0; --ebd-soft: #1d3355; --base: #ef8a4c; --base-soft: #4a2c1b; --neg: #ef7373;
+  --seq: #a58af0; --v-on: var(--ink);
+  --v1: color-mix(in srgb, var(--seq) 14%, var(--surface)); --v2: color-mix(in srgb, var(--seq) 24%, var(--surface));
+  --v3: color-mix(in srgb, var(--seq) 34%, var(--surface)); --v4: color-mix(in srgb, var(--seq) 43%, var(--surface));
+  --v5: color-mix(in srgb, var(--seq) 52%, var(--surface)); --v6: color-mix(in srgb, var(--seq) 62%, var(--surface)); color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12151a; --surface: #1a1e25; --sunk: #222731; --line: #2e3440;
+  --ink: #eef1f5; --ink-2: #b7bfcb; --muted: #8a93a1;
+  --ebd: #5a9bf0; --ebd-soft: #1d3355; --base: #ef8a4c; --base-soft: #4a2c1b; --neg: #ef7373;
+  --seq: #a58af0; --v-on: var(--ink);
+  --v1: color-mix(in srgb, var(--seq) 14%, var(--surface)); --v2: color-mix(in srgb, var(--seq) 24%, var(--surface));
+  --v3: color-mix(in srgb, var(--seq) 34%, var(--surface)); --v4: color-mix(in srgb, var(--seq) 43%, var(--surface));
+  --v5: color-mix(in srgb, var(--seq) 52%, var(--surface)); --v6: color-mix(in srgb, var(--seq) 62%, var(--surface)); color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; letter-spacing: .01em; text-wrap: balance; margin: 0 }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1 }
+h2 { font-size: 22px } h3 { font-size: 17px }
+p { margin: 0 }
+.eyebrow { font: 600 12px/1 var(--body); text-transform: uppercase; letter-spacing: .12em; color: var(--muted) }
+.lede { color: var(--ink-2); max-width: 68ch }
+.num, td.n, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums }
+section { display: grid; gap: 16px; min-width: 0 }
+.head { display: grid; gap: 6px }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0 }
+.scroll { overflow-x: auto }
+
+/* header */
+header { display: grid; gap: 14px }
+.facts { display: flex; flex-wrap: wrap; gap: 10px }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; min-width: 0 }
+.fact b { font: 600 22px/1.1 var(--mono); font-variant-numeric: tabular-nums }
+.fact span { font-size: 13px; color: var(--ink-2) }
+.pos { color: var(--ebd) } .negc { color: var(--base) }
+
+/* judge filter */
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px }
+.seg { display: inline-flex; flex-wrap: wrap; background: var(--sunk); border-radius: 8px; padding: 3px; gap: 2px }
+.seg button { font: 500 13px/1 var(--body); color: var(--ink-2); background: transparent; border: 0; border-radius: 6px; padding: 8px 11px; cursor: pointer }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line) }
+.seg button:focus-visible, .qcard:focus-visible, button:focus-visible, tr.click:focus-visible { outline: 2px solid var(--ebd); outline-offset: 2px }
+.label { font-size: 13px; color: var(--muted) }
+
+/* tables */
+table { border-collapse: collapse; width: 100%; font-size: 14px }
+th, td { padding: 9px 10px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--line) }
+thead th { font: 600 12px/1.2 var(--body); color: var(--ink-2); text-transform: uppercase; letter-spacing: .06em; background: var(--sunk); white-space: nowrap }
+td.n, th.n { text-align: right; white-space: nowrap }
+tr.click { cursor: pointer }
+tr.click:hover td { background: var(--sunk) }
+tr.sel td { background: var(--sunk) }
+.grp { border-left: 1px solid var(--line) }
+.tag-ebd, .tag-base { display: inline-block; font: 600 11px/1 var(--body); letter-spacing: .05em; text-transform: uppercase; padding: 4px 6px; border-radius: 4px }
+.tag-ebd { color: var(--ebd); background: var(--ebd-soft) } .tag-base { color: var(--base); background: var(--base-soft) }
+.score { display: grid; gap: 4px; justify-items: end }
+.bar { width: 64px; height: 4px; background: var(--sunk); border-radius: 2px; overflow: hidden }
+.bar i { display: block; height: 100%; background: var(--ink-2); border-radius: 2px }
+.delta { font-weight: 600; border-radius: 6px; padding: 4px 7px; display: inline-block; min-width: 62px; text-align: right }
+.muted { color: var(--muted) }
+.mean-row td { font-weight: 600; border-top: 2px solid var(--line) }
+.note { font-size: 13px; color: var(--muted); max-width: 80ch }
+
+/* question cards */
+.qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px }
+.qcard { text-align: left; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; cursor: pointer; min-width: 0; align-content: start }
+.qcard[aria-current="true"] { border-color: var(--ebd); box-shadow: 0 0 0 1px var(--ebd) }
+.qtop { display: flex; justify-content: space-between; align-items: baseline; gap: 10px }
+.qid { font: 700 20px/1 var(--display) }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { font-size: 12px; color: var(--ink-2); background: var(--sunk); border-radius: 999px; padding: 3px 9px; white-space: nowrap }
+.chip b { font-weight: 600; color: var(--ink) }
+.prompt { color: var(--ink-2); font-size: 14px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden }
+.qmini { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px }
+
+/* detail */
+.detail-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: end }
+blockquote { margin: 0; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--ink-2); border-radius: 8px; white-space: pre-wrap; color: var(--ink-2); font-size: 14px; max-height: 320px; overflow: auto }
+.model-row th { background: transparent; font: 600 14px/1.2 var(--display); text-transform: none; letter-spacing: 0; color: var(--ink); padding-top: 16px }
+a { color: var(--ebd) }
+
+/* rubric */
+.rubric td { vertical-align: top }
+.axis { font-size: 12px; color: var(--ink-2) }
+.w { font: 600 13px var(--mono) }
+.w.neg { color: var(--neg) }
+.crit { min-width: 280px; max-width: 560px }
+.penalty { font: 600 10px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--neg); border: 1px solid currentColor; border-radius: 3px; padding: 2px 4px; margin-left: 6px; vertical-align: 1px }
+.cell { display: grid; gap: 4px; justify-items: start; min-width: 92px }
+.dots { display: inline-flex; gap: 4px }
+.dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; display: inline-block }
+.dot.s { background: currentColor } .dot.p { background: linear-gradient(90deg, currentColor 50%, transparent 50%) } .dot.n { background: transparent }
+.c-ebd { color: var(--ebd) } .c-base { color: var(--base) }
+.pts { font: 600 13px var(--mono) }
+tr.differs td:first-child { box-shadow: inset 3px 0 0 var(--ink-2) }
+tr.expanded td { background: var(--sunk) }
+.why td { background: var(--sunk); padding: 0 10px 14px }
+.whygrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px }
+.whycol { display: grid; gap: 8px; min-width: 0 }
+.jv { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; font-size: 13px; min-width: 0 }
+.jv .top { display: flex; justify-content: space-between; gap: 8px; font-weight: 600 }
+.jv q { color: var(--ink-2); font-style: italic }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--ink-2); align-items: center }
+.legend span { display: inline-flex; gap: 6px; align-items: center }
+.totals td { font-weight: 600; border-top: 2px solid var(--line) }
+.toggle { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--ink-2) }
+.status { padding: 24px; color: var(--muted) }
+/* delta-only matrix */
+.dmatrix { table-layout: fixed; width: 100% }
+.dmatrix th, .dmatrix td { text-align: center; padding: 6px 2px; overflow: hidden }
+.dmatrix thead th { padding: 7px 2px; font-size: 11px; letter-spacing: .04em }
+.dmatrix .qcol { text-align: left; padding-left: 10px; width: 64px }
+.dmatrix .mstart { border-left: 2px solid var(--line) }
+.dmatrix td.dc { font: 600 12.5px/1 var(--mono); font-variant-numeric: tabular-nums; height: 42px; border: 2px solid var(--surface); white-space: nowrap }
+.dmatrix td.dc.meancol { outline: 1px solid var(--ink-2); outline-offset: -3px }
+.dmatrix tr.sel .qcol { box-shadow: inset 3px 0 0 var(--ebd) }
+.dmatrix .mean-row td { border-top: 2px solid var(--line) }
+.dnarrow { display: none; gap: 14px }
+.dnarrow .dmatrix .qcol { width: 52px }
+.dnarrow .mname { font: 600 14px/1.2 var(--display); padding: 10px 10px 0 }
+@media (max-width: 900px) { .dwide { display: none } .dnarrow { display: grid } }
+@media (max-width: 420px) { .dmatrix td.dc { font-size: 11.5px } }
+.scale { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2) }
+.scale i { display: block; width: 220px; max-width: 50vw; height: 10px; border-radius: 5px;
+  background: linear-gradient(90deg, var(--base), color-mix(in srgb, var(--base) 8%, var(--surface)) 47%, color-mix(in srgb, var(--ebd) 8%, var(--surface)) 53%, var(--ebd)) }
+/* where DeepSeek's lead comes from */
+.leadbars { display: grid; gap: 10px }
+.lb { display: grid; grid-template-columns: 190px minmax(0, 1fr) 64px; gap: 12px; align-items: center; font-size: 13.5px }
+.lbl { font-weight: 600 } .lbl .muted { font-weight: 400; font-size: 12.5px; margin-left: 4px }
+.lbt { display: block; position: relative; height: 18px; border-left: 2px solid var(--ink-2) }
+.lbt i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--mkbar, var(--ink-2)) }
+.lbt u { position: absolute; top: 18px; height: 10px; border-left: 1px dashed var(--muted); text-decoration: none }
+.lb.d { --mkbar: var(--seq) } .lb.p { --mkbar: var(--neg) } .lb.t { --mkbar: var(--ink) }
+.lb .num { text-align: right; font-weight: 700 }
+.tableview[open] summary { margin-bottom: 4px }
+@media (max-width: 640px) { .lb { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px } .lb .lbt { grid-column: 1 / -1; order: 3; height: 14px } .lbt u { display: none } }
+
+/* score formula */
+td.calc { cursor: pointer }
+td.calc:hover .num, td.calc:focus-visible .num { text-decoration: underline; text-underline-offset: 3px }
+td.calc:focus-visible { outline: 2px solid var(--ebd); outline-offset: -2px }
+td.calc.fsel { box-shadow: inset 0 0 0 2px var(--ink); border-radius: 4px }
+.fcontrols { column-gap: 18px; row-gap: 8px } .fctl { display: inline-flex; align-items: center; gap: 8px }
+.fpanel { padding: 16px 18px 12px; display: grid; gap: 4px;
+  --mk: var(--ink-2); --mk-half: color-mix(in srgb, var(--ink-2) 38%, var(--surface)); --mk-line: color-mix(in srgb, var(--ink-2) 45%, var(--surface)) }
+.fformula { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font: 700 20px/1.2 var(--body) }
+.frac { display: inline-grid; text-align: center; font: 600 15px/1.4 var(--body) }
+.frac span:first-child { border-bottom: 2px solid var(--ink); padding: 0 8px 3px }
+.frac span:last-child { padding: 3px 8px 0 }
+.fwhere { font-size: 13.5px; line-height: 1.5; color: var(--ink-2); max-width: 86ch; padding: 6px 0 4px }
+.fwhere b { color: var(--ink) }
+.fwhich { font-size: 13.5px; color: var(--ink-2); padding: 4px 0 2px }
+.fwhich b { color: var(--ink) }
+.fstep { display: flex; gap: 10px; align-items: baseline; font: 600 14px/1.4 var(--body); padding: 14px 0 6px; border-top: 1px solid var(--line); margin-top: 6px }
+.fstep .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--surface); display: inline-grid; place-items: center; font: 700 12px/1 var(--mono); transform: translateY(5px) }
+.frow2 { display: grid; grid-template-columns: var(--colsD); column-gap: 10px; align-items: center; padding: 6px 8px; margin: 0 -8px; border-radius: 6px }
+.frow2.ftable { background: var(--sunk) }
+.fcols { padding-top: 2px; padding-bottom: 0; font: 600 11px/1.2 var(--body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em }
+.fcols span:nth-child(4), .fcols span:last-child { text-align: right }
+.flab { display: grid; gap: 2px; min-width: 0 }
+.flab b { font: 600 14px/1.2 var(--body) } .flab span { font-size: 12px; color: var(--muted) }
+.fbar { display: flex; gap: 2px; height: 28px; min-width: 0 }
+.fseg { flex: var(--w) 1 0; min-width: 0; border-radius: 3px; border: 1px solid var(--mk-line); background: var(--surface); display: grid; place-items: center; overflow: hidden; font: 600 10.5px/1 var(--mono); color: var(--ink-2); cursor: help }
+.fseg.s { background: var(--mk); border-color: var(--mk) }
+.fseg.p { background: var(--mk-half) }
+.fbar.pen .fseg, .flegend .pen .fseg { border-color: var(--neg); color: var(--neg) }
+.fbar.pen .fseg.s, .flegend .pen .fseg.s { background: var(--neg) }
+.fbar.pen .fseg.p, .flegend .pen .fseg.p { background: color-mix(in srgb, var(--neg) 38%, var(--surface)) }
+.fnum { font: 700 15px/1 var(--mono); font-variant-numeric: tabular-nums; text-align: right; color: var(--ink) }
+.fnum.pen { color: var(--neg); text-align: left }
+.frub .fnum { color: var(--ink-2); font-weight: 600 }
+.fop { font: 700 17px/1 var(--mono); color: var(--neg); text-align: center }
+.fpar { font: 300 26px/1 var(--mono); color: var(--muted); text-align: center }
+.fseg.hl { outline: 2px solid var(--ink); outline-offset: 1px; position: relative; z-index: 1 }
+.feq { font: 500 14px/1.4 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); text-align: right; white-space: nowrap }
+.feq b { color: var(--ink); font-weight: 700 }
+.frub .feq { font: 12.5px/1.3 var(--body); color: var(--muted); white-space: normal }
+.flegend { display: flex; flex-wrap: wrap; gap: 6px 28px; font-size: 12.5px; color: var(--ink-2); padding: 0 0 4px }
+.flegend .lg { display: inline-flex; align-items: center; gap: 12px; white-space: nowrap }
+.flegend .lg b { color: var(--ink); font-weight: 600 }
+.flegend .lg > span { display: inline-flex; align-items: center; gap: 5px }
+.flegend .fseg { flex: none; width: 22px; height: 14px; cursor: default }
+.fbadge { display: inline-block; vertical-align: 1px; margin-left: 8px; font: 600 11px/1 var(--body); color: var(--surface); background: var(--ink); border-radius: 4px; padding: 4px 6px; letter-spacing: .02em; white-space: nowrap }
+.fmean { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 16px; padding: 10px 8px; margin: 0 -8px; border-radius: 6px }
+.fmean.ftable { background: var(--sunk) }
+.flabm { font: 600 14px/1.2 var(--body) }
+.fmeq { font: 500 14px/1.4 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); text-align: right }
+.fmeq .fout { font-size: 18px; color: var(--ink) }
+.fnote { font-size: 13px; line-height: 1.5; color: var(--ink-2); min-height: 3em; padding: 10px 0 0; border-top: 1px solid var(--line); margin-top: 6px }
+.fnote b { color: var(--ink) }
+@media (max-width: 760px) {
+  .frow2 { grid-template-columns: var(--colsP); row-gap: 6px; column-gap: 6px }
+  .frow2 .flab, .frow2 .feq { grid-column: 1 / -1 }
+  .frow2 .flab { display: flex; gap: 8px; align-items: baseline }
+  .fcols { display: none }
+  .fseg span { display: none }
+  .fbar { height: 24px }
+  .fnum { font-size: 13px } .fop { font-size: 14px } .fpar { font-size: 20px }
+  .feq { font-size: 13px }
+  .fpanel { padding: 14px 12px 10px }
+  .fmeq { text-align: left; font-size: 13px }
+}
+
+/* model-gap range chart and its analysis */
+.takeaway { font: 600 17px/1.45 var(--body); color: var(--ink); max-width: 72ch; text-wrap: pretty }
+.rpanel { padding: 12px 14px 8px }
+.rlegend { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 13px; color: var(--ink-2); padding: 2px 4px 12px; border-bottom: 1px solid var(--line) }
+.rlegend > span { display: inline-flex; align-items: center; gap: 7px }
+.rlegend .avg { margin-left: auto; color: var(--ink) }
+.sw { display: inline-block; width: 22px; height: 6px; border-radius: 3px }
+.sw.base { background: var(--base) } .sw.ebd { background: var(--ebd) }
+.rgrid { display: grid; grid-template-columns: minmax(118px, 190px) minmax(0, 1fr) 76px; column-gap: 14px; align-items: center }
+.rhead { padding: 10px 0 2px; font-size: 11.5px; color: var(--muted) }
+.rhead.bottom { padding: 4px 0 0; border-top: 1px solid var(--line) }
+.rhead .ax { text-align: right; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; padding-right: 10px }
+.raxis, .rtrack { margin: 0 12px }
+.rhead .gh { text-align: right; padding-right: 8px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600 }
+.raxis { position: relative; height: 16px }
+.raxis span { position: absolute; transform: translateX(-50%); font: 11px/16px var(--mono); white-space: nowrap }
+.rrow { padding: 8px 0; border-top: 1px solid var(--line); cursor: pointer; border-radius: 6px }
+.rrow:hover { background: var(--sunk) }
+.rgroup { font: 600 12px/1.2 var(--body); text-transform: uppercase; letter-spacing: .07em; color: var(--ink); padding: 16px 0 6px 10px; border-top: 1px solid var(--line) }
+.rgroup + .rrow { border-top: 0 }
+.rq { display: grid; gap: 3px; padding-left: 10px; min-width: 0 }
+.rq b { font: 700 16px/1 var(--display) }
+.rq span { font-size: 12.5px; line-height: 1.25; color: var(--ink-2) }
+.rtrack { position: relative; height: 60px }
+.rtrack .gl { position: absolute; top: 2px; bottom: 2px; width: 1px; background: var(--line) }
+.lane { position: absolute; left: 0; right: 0; height: 30px }
+.lane.base { top: 0 } .lane.ebd { top: 30px }
+.rng { position: absolute; top: 50%; height: 6px; margin-top: -3px; border-radius: 3px; min-width: 2px }
+.lane.base .rng { background: var(--base) } .lane.ebd .rng { background: var(--ebd) }
+.mk { position: absolute; top: 50%; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; background: var(--surface); border: 2px solid; display: grid; place-items: center; font: 700 10.5px/1 var(--body); color: var(--ink); box-shadow: 0 0 0 2px var(--surface) }
+.lane.base .mk { border-color: var(--base) } .lane.ebd .mk { border-color: var(--ebd) }
+.rlegend .mk { position: static; transform: none; margin: 0; border-color: var(--ink-2) }
+.rgap { display: grid; grid-template-rows: 30px 30px; align-items: center; justify-items: end; padding-right: 8px; font: 600 14px var(--mono); font-variant-numeric: tabular-nums }
+.rgap span { display: inline-flex; align-items: center; gap: 6px }
+.rgap i { display: inline-block; width: 10px; height: 4px; border-radius: 2px }
+.mk.dot { width: 10px; height: 10px; margin: -5px 0 0 -5px; font-size: 0 }
+.clabel { position: absolute; top: 50%; transform: translateY(-50%); margin-left: 10px; font: 700 10.5px/1 var(--body); letter-spacing: .06em; color: var(--ink); white-space: nowrap; background: var(--surface); padding: 3px 5px; border-radius: 4px; box-shadow: 0 0 0 1px var(--line) }
+.clabel.l { margin-left: -10px; transform: translate(-100%, -50%) }
+.clabel.up { margin-left: 0; transform: translate(-50%, -150%); z-index: 1 }
+.clabel.down { margin-left: 0; transform: translate(-50%, 50%); z-index: 1 }
+.tableview summary { cursor: pointer; font-size: 13.5px; color: var(--ink-2); width: fit-content }
+.tableview .panel { margin-top: 10px }
+.gtable { table-layout: fixed; font-size: 13px }
+.gtable th, .gtable td { padding: 7px 6px; text-align: right }
+.gtable th:first-child, .gtable td:first-child, .gtable th:nth-child(2), .gtable td:nth-child(2) { text-align: left }
+.gtable td { font-family: var(--mono); font-variant-numeric: tabular-nums }
+.gtable td:first-child, .gtable td:nth-child(2) { font-family: var(--body) }
+.gtable tr.qstart td { border-top: 2px solid var(--line) }
+.mini th.pstart, .mini td.v.pstart { border-left: 3px solid var(--line) }
+.mini th.pstart.baseline, .mini td.v.pstart.baseline { border-left-color: var(--base) }
+.mini th.pstart.ebd, .mini td.v.pstart.ebd { border-left-color: var(--ebd) }
+.v { background: var(--surface) } .v1 { background: var(--v1) } .v2 { background: var(--v2) } .v3 { background: var(--v3) }
+.v4 { background: var(--v4) } .v5 { background: var(--v5); color: var(--v-on) } .v6 { background: var(--v6); color: var(--v-on) }
+.vscale { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; font-size: 12.5px; color: var(--ink-2) }
+.vscale span { margin: 0 6px }
+.vscale i { display: block; width: 26px; height: 14px; border-radius: 3px; border: 1px solid var(--line) }
+@media (max-width: 640px) {
+  .rpanel { padding: 10px 10px 6px }
+  .rgrid { grid-template-columns: minmax(0, 1fr) 58px; column-gap: 6px }
+  .rhead > span.ax { grid-column: 1 / -1; text-align: left; padding: 0 0 2px 4px }
+  .rhead.bottom > span.ax { display: none }
+  .raxis span.minor { display: none }
+  .rq { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; padding: 0 0 2px 4px }
+  .rq span { font-size: 12px }
+  .rgap { font-size: 12.5px; padding-right: 2px } .rgap span { gap: 4px } .rgap i { width: 7px }
+  .raxis, .rtrack { margin: 0 10px }
+  .rgroup { padding-left: 4px }
+  .mk { width: 17px; height: 17px; margin: -8.5px 0 0 -8.5px; font-size: 9px }
+  .mk.dot { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px }
+  .rlegend .avg { display: block; width: 100%; margin-left: 0 }
+}
+.findings { display: grid; gap: 14px }
+.findings > h3 { margin-top: 8px }
+.finding { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: grid; gap: 12px; min-width: 0 }
+.finding h4 { font: 600 17px/1.3 var(--display); margin: 0; text-wrap: balance }
+.finding h4 .k { font: 600 13px/1 var(--mono); color: var(--muted); margin-right: 8px }
+.finding p { max-width: 84ch; color: var(--ink-2) }
+.finding p b { color: var(--ink) }
+.contrast { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px }
+.contrast figure { margin: 0; background: var(--sunk); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; font-size: 13.5px; min-width: 0; align-content: start }
+.contrast figcaption { font: 600 11.5px/1.3 var(--body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em }
+.contrast blockquote { all: unset; color: var(--ink); font-style: italic }
+.mini { table-layout: fixed; font-size: 13px }
+.mini th, .mini td { padding: 7px 4px; text-align: center }
+.mini th:first-child, .mini td:first-child { text-align: left; padding-left: 10px; width: 42% }
+.mini thead th { font-size: 11px; letter-spacing: .03em; white-space: normal }
+.mini td.v { font: 600 12.5px/1 var(--mono); font-variant-numeric: tabular-nums; border: 2px solid var(--surface); height: 38px; white-space: nowrap }
+.mini .crit-q { font: 600 12px/1 var(--mono); color: var(--muted); margin-right: 4px }
+.mini .wt { font: 600 12px var(--mono); color: var(--muted); white-space: nowrap }
+.profile td:not(:first-child), .profile th:not(:first-child) { text-align: right; padding-right: 12px }
+.profile td:not(:first-child) { font-family: var(--mono); font-variant-numeric: tabular-nums }
+.limits { font-size: 13.5px; color: var(--ink-2); max-width: 90ch; border-left: 3px solid var(--line); padding-left: 12px }
+@media (max-width: 640px) { .crit { min-width: 220px } .qgrid { grid-template-columns: 1fr } .finding { padding: 14px 12px } .mini th:first-child, .mini td:first-child { width: 36%; padding-left: 8px } .mini td.v { font-size: 11.5px } }
+@media (prefers-reduced-motion: no-preference) { tr.click td { transition: background .12s } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">INSE 691 · Formal evaluation · ResearchRubrics</div>
+    <h1>EBD vs Baseline Scores</h1>
+    <p class="lede">Six research questions from the ResearchRubrics benchmark, each answered by both pipelines on three models, and every report graded criterion by criterion by three judge models, one per model family: Fable 5.2 (Anthropic), Astra (OpenAI) and Neon (Google). A fourth judge, Opus 5.5, shares Fable's family and is left out; with it, no difference below changes sign. Scores use the benchmark's formula: the sum of weight × verdict over the rubric, divided by the rubric's positive weights. A verdict is 1 (satisfied), 0.5 (partially) or 0; a satisfied penalty criterion subtracts.</p>
+    <div class="facts" id="facts"><div class="fact"><b>…</b><span>Loading scores</span></div></div>
+  </header>
+
+  <section aria-labelledby="m-h">
+    <div class="head">
+      <h2 id="m-h">1 · Score matrix</h2>
+      <p class="note">Each cell is a report's score. Δ is EBD minus baseline on the same question and model: blue when EBD scored higher, orange when the baseline did. Pick a judge to see one judge's scores, or the mean of the three. Click a score to see how it is calculated (section 2); click a question to open it further down.</p>
+    </div>
+    <div class="controls"><span class="label">Scores from</span><div class="seg" id="judgeSeg" role="group" aria-label="Judge"></div></div>
+    <div class="panel scroll"><table id="matrix"></table></div>
+    <p class="note">DeepSeek ran under different conditions (high reasoning effort against medium, built-in deep search without a tool cap, a larger researcher output limit, at most 3 rounds), so it is kept apart from the main comparison of Haiku 5.5 and GPT-6 Luna.</p>
+  </section>
+
+  <section aria-labelledby="f-h" id="formula">
+    <div class="head">
+      <h2 id="f-h">2 · How a score is calculated</h2>
+      <p class="lede">A score is the share of the rubric's weight that a report earns. Each judge marks every criterion; the earned points, minus any penalties, are divided by the rubric's total positive weight. The table shows the mean of the three judges.</p>
+      <p class="note">Pick a report here, or click any score in the table above; its cell is outlined there.</p>
+    </div>
+    <div class="controls fcontrols">
+      <span class="fctl"><span class="label">Question</span><div class="seg" id="fQSeg" role="group" aria-label="Question"></div></span>
+      <span class="fctl"><span class="label">Model</span><div class="seg" id="fMSeg" role="group" aria-label="Model"></div></span>
+      <span class="fctl"><span class="label">Pipeline</span><div class="seg" id="fPSeg" role="group" aria-label="Pipeline"></div></span>
+    </div>
+    <div class="panel fpanel" id="fcalc"></div>
+  </section>
+
+  <section aria-labelledby="dm-h">
+    <div class="head">
+      <h2 id="dm-h">3 · EBD − baseline by question, model and judge</h2>
+      <p class="note">Only the differences: EBD's score minus the baseline's on the same question and model, for each of the three judges and their mean. Blue: EBD scored higher. Orange: the baseline scored higher. The deeper the color, the larger the gap. Click a row to open that question below.</p>
+    </div>
+    <div class="panel dwide"><table id="dmatrix" class="dmatrix"></table></div>
+    <div class="dnarrow" id="dmatrixNarrow"></div>
+    <div class="scale" aria-hidden="true"><span class="num">−0.25</span><i></i><span class="num">+0.25</span><span class="muted">orange: baseline higher · blue: EBD higher</span></div>
+  </section>
+
+  <section aria-labelledby="g-h">
+    <div class="head">
+      <h2 id="g-h">4 · Same pipeline, different model</h2>
+      <p class="takeaway">In these runs the three models end up furthest apart on Q5 and Q3: 0.25 to 0.35 under both pipelines. On Q6, Q4 and Q1 they are closer together with EBD.</p>
+      <p class="note">Each bar spans the three models' scores on one question with one pipeline, so the longer the bar, the further apart the models are. Gap is the best score minus the worst. Scores are the mean of the three judges. Click a question to open it below.</p>
+    </div>
+    <div class="panel rpanel">
+      <div class="rlegend" id="glegend"></div>
+      <div id="gplot"></div>
+    </div>
+    <details class="tableview"><summary>Show the numbers</summary><div class="panel"><table id="gtable" class="gtable"></table></div></details>
+
+    <div class="findings">
+      <h3>What goes with the gaps</h3>
+      <p class="limits"><b>Corrected on 25 November 2026.</b> The earlier version showed seven criteria picked after seeing the scores, ranked the causes without measuring them, mislabelled several run measures and left out that DeepSeek ran at a higher reasoning effort. The scores and gaps did not change.</p>
+
+      <article class="finding">
+        <h4>DeepSeek leads by <span id="leadTotal"></span>; derived criteria carry <span id="shareRange"></span> of it, depending on how they are sorted</h4>
+        <p>DeepSeek's mean score over both pipelines, minus the mean of Haiku and Luna, split by the kind of criterion it comes from. <b>Derived</b> criteria need a result the report must work out itself: an estimate or calculation for this case, a forecast, a verdict or a proof.</p>
+        <div class="leadbars" id="leadbars"></div>
+        <div class="panel"><table class="mini profile" id="shares"></table></div>
+        <p>Two agents sorted all 139 criteria from the questions, criteria and weights, without scores, reports or model names, and agreed on every one. They are two instances of one model, and the sorting rule was written after the scores were known. Moving one or two criteria between the groups changes the derived share of the lead from <span id="shareNow"></span> (drawn above) to <span id="shareLo"></span> or <span id="shareHi"></span>. Why the models differ on these criteria was not tested.</p>
+        <p><b>The lead is not a comparison of models alone.</b> DeepSeek ran at high reasoning effort (its API maps medium to high) and the other two at medium; its search had no tool cap and its researchers a larger output limit. It is best in <span id="bestCells"></span> of 12 question and pipeline cells, and below the mean of the other two on Q1 and Q2.</p>
+        <details class="tableview"><summary>All derived criteria, with each model's marks</summary>
+          <div class="panel dwide" style="margin-top:10px"><table class="mini" id="evidence"></table></div>
+          <div class="dnarrow" id="evidenceNarrow" style="margin-top:10px"></div>
+          <div class="vscale" aria-hidden="true"><span>Not met 0</span><i class="v v0"></i><i class="v v1"></i><i class="v v2"></i><i class="v v3"></i><i class="v v4"></i><i class="v v5"></i><i class="v v6"></i><span>1 Fully met</span></div>
+          <p class="note">Each cell averages the three judges' verdicts (1 satisfied, 0.5 partially, 0 not). The more color, the more of the criterion the report met.</p>
+        </details>
+      </article>
+
+      <article class="finding">
+        <h4>A higher score does not show a more reliable report</h4>
+        <p><b><span id="offD"></span> of DeepSeek's links point to a page that no search tool reported</b> (<span id="offH"></span> for Haiku, <span id="offL"></span> for Luna); most of those are bare home pages of a site. They are not proven wrong: failed or redirected page opens are not recorded, and nearly all of these links already stood in the researchers' notes, where the engine marks them as unverified. The judges graded against the rubric without opening links or checking facts.</p>
+        <div class="panel"><table class="mini profile" id="profile"></table></div>
+        <p>DeepSeek's reports are longer and its writer gets more notes. Across the models longer reports score higher (r = <span id="rAll"></span> within a question and pipeline), but among Haiku and Luna reports alone r is only <span id="rHL"></span>. Costs include assumed search fees for Haiku and Luna and none for DeepSeek.</p>
+      </article>
+
+      <p class="limits">Limits: one run per cell, so neither a gap nor a change in a gap can be told apart from run-to-run variation. DeepSeek has the top score on Q3, Q4 and Q5 in both pipelines under every judge; on Q1, Q2 and Q6 the leader depends on the pipeline or the judge. "DeepSeek" means the model together with its conditions above, run as a separate experiment; its 3-round cap was never reached. In the chart, "wide" means a gap of at least 0.2 under both pipelines and "narrower" a gap at least 0.05 smaller with EBD; both cut-offs were chosen after seeing the data.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="q-h">
+    <div class="head"><h2 id="q-h">5 · The six questions</h2>
+      <p class="note">Drawn at random (seed 691) from ResearchRubrics after leaving out Creative Writing, Current Events and low-exploration prompts: one per domain. Labels are the benchmark's own.</p></div>
+    <div class="qgrid" id="qgrid"></div>
+  </section>
+
+  <section aria-labelledby="d-h" id="detail">
+    <div class="detail-head"><div class="head"><div class="eyebrow" id="d-eyebrow"></div><h2 id="d-h">6 · Scores on this question</h2></div></div>
+    <blockquote id="d-prompt"></blockquote>
+    <div class="panel scroll"><table id="dtable"></table></div>
+  </section>
+
+  <section aria-labelledby="r-h">
+    <div class="head"><h2 id="r-h">7 · Rubric and how each pipeline scored</h2>
+      <p class="note">The question's own rubric from the benchmark, unchanged. Dots are the three judges' verdicts in the order Fable 5.2, Astra, Neon. Points are weight × verdict, averaged over the judges (or one judge's, if picked above). Click a criterion to read each judge's reasoning.</p></div>
+    <div class="controls">
+      <span class="label">Model</span><div class="seg" id="modelSeg" role="group" aria-label="Model"></div>
+      <label class="toggle"><input type="checkbox" id="diffOnly"> Only criteria where the pipelines differ</label>
+    </div>
+    <div class="legend">
+      <span><i class="dot s c-ebd"></i>Satisfied</span><span><i class="dot p c-ebd"></i>Partially</span><span><i class="dot n c-ebd"></i>Not satisfied</span>
+      <span><span class="tag-base">Baseline</span><span class="tag-ebd">EBD</span></span>
+      <span><span class="penalty" style="margin:0">penalty</span> negative weight: satisfied means the report shows the fault</span>
+    </div>
+    <div class="panel scroll"><table class="rubric" id="rtable"></table></div>
+  </section>
+</div>
+
+<script>
+const MODELS = [["haiku", "Haiku 5.5"], ["luna", "GPT-6 Luna"], ["deepseek", "DeepSeek V4.1 Flash"]];
+const state = { judge: "mean", q: "Q1", model: "haiku", diffOnly: false, open: new Set() };
+let M, G = {}, JUDGES = [];
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const f3 = (x) => (x == null || Number.isNaN(x) ? "–" : x.toFixed(3));
+const sgn = (x) => (x > 0 ? "+" : x < 0 ? "−" : "±") + Math.abs(x).toFixed(3);
+const mean = (a) => a.reduce((s, v) => s + v, 0) / a.length;
+const rep = (q, model, pipe) => M.reports.find((r) => r.q === q && r.model === model && r.pipeline === pipe);
+const scoreOf = (r, judge = state.judge) => (judge === "mean" ? mean(JUDGES.map((j) => r.scores[j.id])) : r.scores[judge]);
+const qOf = (id) => M.questions.find((q) => q.id === id);
+
+function deltaCell(d) {
+  const a = Math.min(1, Math.abs(d) / 0.25);
+  const bg = d >= 0 ? `color-mix(in srgb, var(--ebd) ${Math.round(a * 42)}%, transparent)` : `color-mix(in srgb, var(--base) ${Math.round(a * 42)}%, transparent)`;
+  return `<span class="delta num ${d >= 0 ? "pos" : "negc"}" style="background:${bg}">${sgn(d)}</span>`;
+}
+function scoreCell(x) {
+  const w = Math.max(0, Math.min(1, x)) * 100;
+  return `<div class="score"><span class="num">${f3(x)}</span><span class="bar"><i style="width:${w}%"></i></span></div>`;
+}
+
+function renderFacts() {
+  const diffs = (models) => M.questions.flatMap((q) => models.map((m) => scoreOf(rep(q.id, m, "ebd")) - scoreOf(rep(q.id, m, "baseline"))));
+  const main = diffs(["haiku", "luna"]), ds = diffs(["deepseek"]);
+  const who = state.judge === "mean" ? "mean of 3 judges" : JUDGES.find((j) => j.id === state.judge).label;
+  const fact = (b, s, cls = "") => `<div class="fact"><b class="${cls}">${b}</b><span>${s}</span></div>`;
+  document.getElementById("facts").innerHTML =
+    fact(sgn(mean(main)), `Main comparison, EBD − baseline (${who})`, mean(main) >= 0 ? "pos" : "negc") +
+    fact(`${main.filter((d) => d > 0).length} / ${main.length}`, "Main pairs where EBD scored higher") +
+    fact(sgn(mean(ds)), `DeepSeek, EBD − baseline (${ds.filter((d) => d > 0).length}/6 higher)`, mean(ds) >= 0 ? "pos" : "negc") +
+    fact("36 · 3", "Reports · judges, 834 gradings per judge");
+}
+
+function renderSeg(el, items, current, onPick) {
+  el.innerHTML = items.map(([id, label]) => `<button type="button" data-id="${esc(id)}" aria-pressed="${id === current}">${esc(label)}</button>`).join("");
+  el.onclick = (e) => { const b = e.target.closest("button"); if (b) onPick(b.dataset.id); };
+}
+
+function renderMatrix() {
+  let h = `<thead><tr><th rowspan="2">Question</th>${MODELS.map(([, l]) => `<th colspan="3" class="grp">${esc(l)}</th>`).join("")}</tr><tr>${MODELS.map(() => `<th class="n grp">Baseline</th><th class="n">EBD</th><th class="n">Δ</th>`).join("")}</tr></thead><tbody>`;
+  const sums = MODELS.map(() => ({ b: [], e: [] }));
+  for (const q of M.questions) {
+    h += `<tr class="click${q.id === state.q ? " sel" : ""}" tabindex="0" data-q="${q.id}"><td><b>${q.id}</b><div class="muted" style="font-size:12px">${esc(q.domain)}</div></td>`;
+    MODELS.forEach(([m], i) => {
+      const b = scoreOf(rep(q.id, m, "baseline")), e = scoreOf(rep(q.id, m, "ebd"));
+      sums[i].b.push(b); sums[i].e.push(e);
+      const calc = (p) => `class="n calc${p === "baseline" ? " grp" : ""}" data-calc="${m}|${p}" tabindex="0" title="See how this score is calculated"`;
+      h += `<td ${calc("baseline")}>${scoreCell(b)}</td><td ${calc("ebd")}>${scoreCell(e)}</td><td class="n">${deltaCell(e - b)}</td>`;
+    });
+    h += `</tr>`;
+  }
+  h += `<tr class="mean-row"><td>Mean of 6</td>${sums.map((s) => `<td class="n grp num">${f3(mean(s.b))}</td><td class="n num">${f3(mean(s.e))}</td><td class="n">${deltaCell(mean(s.e) - mean(s.b))}</td>`).join("")}</tr></tbody>`;
+  const t = document.getElementById("matrix");
+  t.innerHTML = h;
+  const open = (e) => {
+    const c = e.target.closest("td[data-calc]");
+    if (c) { const [m, p] = c.dataset.calc.split("|"); showFormula(c.closest("tr").dataset.q, m, p); return; }
+    const r = e.target.closest("tr[data-q]"); if (r) pickQ(r.dataset.q, true);
+  };
+  t.onclick = open;
+  if (typeof fstate !== "undefined" && document.getElementById("fcalc").childElementCount) markTableCell();
+  t.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(e); } };
+}
+
+function shade(d) {
+  const a = Math.min(1, Math.abs(d) / 0.25);
+  const p = Math.round(6 + a * 80);
+  const hue = d >= 0 ? "var(--ebd)" : "var(--base)";
+  return `background:color-mix(in srgb, ${hue} ${p}%, var(--surface));color:${p >= 48 ? "#ffffff" : "var(--ink)"}`;
+}
+
+function renderDMatrix() {
+  const cols = [...JUDGES.map((j) => [j.id, j.label.split(" ")[0], j.label]), ["mean", "Mean", "Mean of the three judges"]];
+  const delta = (q, m, j) => scoreOf(rep(q, m, "ebd"), j) - scoreOf(rep(q, m, "baseline"), j);
+  const avg = (m, j) => mean(M.questions.map((q) => delta(q.id, m, j)));
+  const cell = (d, i, isMean, where) => `<td class="dc${i === 0 ? " mstart" : ""}${isMean ? " meancol" : ""}" style="${shade(d)}" title="${esc(where)}: ${sgn(d)}">${sgn(d)}</td>`;
+  const heads = (models) => `<thead>${models.length > 1 ? `<tr><th class="qcol" rowspan="2"></th>${models.map(([, l]) => `<th class="mstart" colspan="${cols.length}">${esc(l)}</th>`).join("")}</tr><tr>` : `<tr><th class="qcol"></th>`}${models.map(() => cols.map(([, s, full], i) => `<th class="${i === 0 ? "mstart" : ""}" title="${esc(full)}">${esc(s)}</th>`).join("")).join("")}</tr></thead>`;
+  const body = (models) => {
+    let h = "<tbody>";
+    for (const q of M.questions) {
+      h += `<tr class="click${q.id === state.q ? " sel" : ""}" tabindex="0" data-q="${q.id}"><td class="qcol" title="${esc(q.domain)}"><b>${q.id}</b></td>`;
+      for (const [m, ml] of models) cols.forEach(([j, , full], i) => { h += cell(delta(q.id, m, j), i, j === "mean", `${q.id} · ${ml} · ${full}`); });
+      h += `</tr>`;
+    }
+    h += `<tr class="mean-row"><td class="qcol" title="Mean of the six questions"><b>Mean</b></td>${models.map(([m, ml]) => cols.map(([j, , full], i) => cell(avg(m, j), i, j === "mean", `Mean of 6 · ${ml} · ${full}`)).join("")).join("")}</tr></tbody>`;
+    return h;
+  };
+  const wire = (el) => {
+    el.onclick = (e) => { const r = e.target.closest("tr[data-q]"); if (r) pickQ(r.dataset.q, true); };
+    el.onkeydown = (e) => { const r = e.target.closest("tr[data-q]"); if (r && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); pickQ(r.dataset.q, true); } };
+  };
+  const wide = document.getElementById("dmatrix");
+  wide.innerHTML = heads(MODELS) + body(MODELS);
+  wire(wide);
+  const narrow = document.getElementById("dmatrixNarrow");
+  narrow.innerHTML = MODELS.map((m) => `<div class="panel"><div class="mname">${esc(m[1])}</div><table class="dmatrix">${heads([m])}${body([m])}</table></div>`).join("");
+  wire(narrow);
+}
+
+const PIPES = [["baseline", "Baseline"], ["ebd", "EBD"]];
+const SHORT = { haiku: "Haiku", luna: "Luna", deepseek: "DeepSeek" };
+const TOPIC = { Q1: "PAC theorem for beginners", Q2: "Responsible AI in law", Q3: "KCTech U.S. revenue",
+  Q4: "Three revolutions compared", Q5: "Prove AI stays aligned", Q6: "Scale a Twitter-like app" };
+const LETTER = { haiku: "H", luna: "L", deepseek: "D" };
+const modelName = (m) => MODELS.find((r) => r[0] === m)[1];
+// Section 3 always shows the three-judge mean: its text and grouping are written for that view.
+const gScore = (q, m, p) => scoreOf(rep(q, m, p), "mean");
+function gapOf(q, p) {
+  const xs = MODELS.map(([m]) => gScore(q, m, p));
+  return Math.max(...xs) - Math.min(...xs);
+}
+// Rows are grouped by what happens to the gap between the pipelines; within a group, widest baseline gap first.
+function gapGroups() {
+  const qs = M.questions.map((q) => q.id), g = gapOf;
+  const wide = qs.filter((q) => Math.min(g(q, "baseline"), g(q, "ebd")) >= 0.2);
+  const narrower = qs.filter((q) => !wide.includes(q) && g(q, "baseline") - g(q, "ebd") >= 0.05);
+  const small = qs.filter((q) => !wide.includes(q) && !narrower.includes(q));
+  const byBase = (a, b) => g(b, "baseline") - g(a, "baseline");
+  return [["Wide under both pipelines", wide.sort(byBase)], ["Narrower with EBD", narrower.sort(byBase)],
+    ["Small under both pipelines", small.sort(byBase)]].filter(([, q]) => q.length);
+}
+function renderGPlot() {
+  const groups = gapGroups();
+  const all = M.reports.map((r) => scoreOf(r, "mean"));
+  const lo = Math.floor(Math.min(...all) * 10) / 10, hi = Math.ceil(Math.max(...all) * 10) / 10;
+  const pos = (x) => ((x - lo) / (hi - lo)) * 100;
+  const ticks = [];
+  for (let t = lo; t <= hi + 1e-9; t += 0.1) ticks.push(Math.round(t * 10) / 10);
+  const avg = (p) => mean(M.questions.map((q) => gapOf(q.id, p)));
+  document.getElementById("glegend").innerHTML =
+    `<span><i class="sw base"></i>Baseline</span><span><i class="sw ebd"></i>EBD</span>` +
+    MODELS.map(([m, l]) => `<span><i class="mk">${LETTER[m]}</i>${esc(l)}</span>`).join("") +
+    `<span class="avg">Mean gap per question: <b class="num">${f3(avg("baseline"))}</b> baseline, <b class="num">${f3(avg("ebd"))}</b> EBD</span>`;
+  const axis = (where) => `<div class="rgrid rhead ${where}" aria-hidden="true"><span class="ax">Score</span><div class="raxis">${ticks.map((t, i) => `<span class="${i % 2 ? "minor" : ""}" style="left:${pos(t)}%">${t.toFixed(1)}</span>`).join("")}</div><span class="gh">${where === "top" ? "Gap" : ""}</span></div>`;
+  let h = axis("top");
+  for (const [title, qs] of groups) {
+    h += `<div class="rgroup">${esc(title)}</div>`;
+    for (const qid of qs) {
+      const lanes = PIPES.map(([p, pl]) => {
+        const vals = MODELS.map(([m]) => [m, gScore(qid, m, p)]).sort((a, b) => a[1] - b[1]);
+        const min = vals[0], max = vals[vals.length - 1];
+        const tip = `${qid} · ${pl}: gap ${f3(max[1] - min[1])}, from ${modelName(min[0])} ${f3(min[1])} to ${modelName(max[0])} ${f3(max[1])}`;
+        const marks = vals.map(([m, x]) => `<i class="mk" data-x="${pos(x) / 100}" data-l="${LETTER[m]}" data-tip="${esc(`${modelName(m)} ${f3(x)}`)}" style="left:${pos(x)}%" title="${esc(`${qid} · ${pl} · ${modelName(m)}: ${f3(x)}`)}">${LETTER[m]}</i>`).join("");
+        return { p, pl, gap: max[1] - min[1],
+          html: `<div class="lane ${p === "ebd" ? "ebd" : "base"}" title="${esc(tip)}"><i class="rng" style="left:${pos(min[1])}%;width:${pos(max[1]) - pos(min[1])}%"></i>${marks}</div>` };
+      });
+      const label = `${qid}, ${TOPIC[qid]}: ` + lanes.map((l) => `${l.pl} gap ${f3(l.gap)}`).join(", ");
+      h += `<div class="rgrid rrow" tabindex="0" role="button" data-q="${qid}" aria-label="${esc(label)}">
+        <div class="rq"><b>${qid}</b><span>${esc(TOPIC[qid])}</span></div>
+        <div class="rtrack">${ticks.map((t) => `<i class="gl" style="left:${pos(t)}%"></i>`).join("")}${lanes.map((l) => l.html).join("")}</div>
+        <div class="rgap">${lanes.map((l) => `<span title="${esc(l.pl)} gap"><i class="sw ${l.p === "ebd" ? "ebd" : "base"}"></i>${f3(l.gap)}</span>`).join("")}</div></div>`;
+    }
+  }
+  h += axis("bottom");
+  const el = document.getElementById("gplot");
+  el.innerHTML = h;
+  el.onclick = (e) => { const r = e.target.closest("[data-q]"); if (r) pickQ(r.dataset.q, true); };
+  el.onkeydown = (e) => { const r = e.target.closest("[data-q]"); if (r && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); pickQ(r.dataset.q, true); } };
+  layoutMarkers();
+  renderGTable(groups);
+}
+// Markers too close to carry a letter each shrink to dots at their true positions (so the bar keeps its real
+// length); their letters go in one label beside the cluster, in left-to-right order.
+function layoutMarkers() {
+  const track = document.querySelector("#gplot .rtrack");
+  if (!track) return;
+  const w = track.clientWidth, minGap = w < 400 ? 19 : 22, labelW = 40;
+  for (const lane of document.querySelectorAll("#gplot .lane")) {
+    lane.querySelectorAll(".clabel").forEach((p) => p.remove());
+    const mks = [...lane.querySelectorAll(".mk")].sort((a, b) => a.dataset.x - b.dataset.x);
+    mks.forEach((mk) => mk.classList.remove("dot"));
+    const clusters = [];
+    for (const mk of mks) {
+      const c = clusters[clusters.length - 1];
+      if (c && (mk.dataset.x - c[c.length - 1].dataset.x) * w < minGap) c.push(mk);
+      else clusters.push([mk]);
+    }
+    for (const c of clusters.filter((c) => c.length > 1)) {
+      c.forEach((mk) => mk.classList.add("dot"));
+      const first = Number(c[0].dataset.x) * w, last = Number(c[c.length - 1].dataset.x) * w;
+      const others = mks.filter((mk) => !c.includes(mk)).map((mk) => Number(mk.dataset.x) * w);
+      const lab = document.createElement("span");
+      lab.className = "clabel";
+      lab.textContent = c.map((mk) => mk.dataset.l).join(" ");
+      lab.title = c.map((mk) => mk.dataset.tip).join(" · ");
+      lane.appendChild(lab);
+      const lw = lab.offsetWidth || labelW;
+      // Beside the cluster where there is room (inside the track, clear of the other markers); else above or below the lane.
+      const rightFree = last + 10 + lw <= w + 10 && !others.some((x) => x > last && x < last + 22 + lw);
+      const leftFree = first - 10 - lw >= -10 && !others.some((x) => x < first && x > first - 22 - lw);
+      const awayRight = c.includes(mks[mks.length - 1]) || !c.includes(mks[0]);
+      const side = awayRight ? (rightFree ? "r" : leftFree ? "l" : "v") : (leftFree ? "l" : rightFree ? "r" : "v");
+      lab.classList.add(side === "v" ? (lane.classList.contains("ebd") ? "down" : "up") : side);
+      lab.style.left = `${((side === "r" ? last : side === "l" ? first : (first + last) / 2) / w) * 100}%`;
+    }
+  }
+}
+let resizeTimer;
+addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(layoutMarkers, 120); });
+function renderGTable(groups) {
+  let h = `<thead><tr><th style="width:12%">Q</th><th style="width:20%">Pipeline</th>${MODELS.map(([m]) => `<th>${SHORT[m]}</th>`).join("")}<th>Gap</th></tr></thead><tbody>`;
+  for (const qid of groups.flatMap(([, qs]) => qs)) {
+    PIPES.forEach(([p, pl], i) => {
+      const vals = MODELS.map(([m]) => gScore(qid, m, p));
+      const top = Math.max(...vals);
+      h += `<tr class="${i === 0 ? "qstart" : ""}"><td>${i === 0 ? `<b>${qid}</b>` : ""}</td><td><span class="${p === "ebd" ? "tag-ebd" : "tag-base"}">${pl}</span></td>${vals.map((x) => `<td>${x === top ? `<b>${f3(x)}</b>` : f3(x)}</td>`).join("")}<td><b>${f3(top - Math.min(...vals))}</b></td></tr>`;
+    });
+  }
+  document.getElementById("gtable").innerHTML = h + "</tbody>";
+}
+
+// Derived criteria: classified from the text alone (analysis/derived_criteria.csv on the analysis branch).
+function renderEvidence() {
+  const v = (rid, c) => mean(JUDGES.map((j) => G[rid][c][j.id].s));
+  const tag = (p, l) => `<span class="${p === "ebd" ? "tag-ebd" : "tag-base"}">${l}</span>`;
+  const table = (pipes) => {
+    let h = `<thead>${pipes.length > 1 ? `<tr><th rowspan="2">Criterion</th>${pipes.map(([p, l]) => `<th colspan="3" class="pstart ${p}">${tag(p, l)}</th>`).join("")}</tr><tr>` : `<tr><th>${tag(...pipes[0])}</th>`}${pipes.map(([p]) => MODELS.map(([m], i) => `<th class="${i === 0 ? `pstart ${p}` : ""}">${SHORT[m]}</th>`).join("")).join("")}</tr></thead><tbody>`;
+    for (const [qid, ci] of M.gapStats.derived_both) {
+      const c = qOf(qid).criteria.find((x) => x.index === ci), t = c.criterion.replace(/\s+/g, " ").trim(), label = t.length > 96 ? t.slice(0, 94) + "…" : t;
+      h += `<tr><td title="${esc(c.criterion)}"><span class="crit-q">${qid}</span>${esc(label)} <span class="wt">+${c.weight}</span></td>`;
+      for (const [p] of pipes) {
+        const vals = MODELS.map(([m]) => [m, v(rep(qid, m, p).id, ci)]);
+        h += vals.map(([m, x], i) => `<td class="v v${Math.round(x * 6)}${i === 0 ? ` pstart ${p}` : ""}" title="${esc(`${qid} criterion ${ci} · ${p === "ebd" ? "EBD" : "Baseline"} · ${SHORT[m]}: ${x.toFixed(2)}`)}">${x.toFixed(2)}</td>`).join("");
+      }
+      h += `</tr>`;
+    }
+    return h + "</tbody>";
+  };
+  document.getElementById("evidence").innerHTML = table(PIPES);
+  document.getElementById("evidenceNarrow").innerHTML = PIPES.map((p) => `<div class="panel"><table class="mini">${table([p])}</table></div>`).join("");
+}
+function renderProfile() {
+  const by = (m) => M.reports.filter((r) => r.model === m);
+  const avg = (m, f) => mean(by(m).map(f));
+  const sum = (m, k) => by(m).reduce((t, r) => t + r[k], 0);
+  const pct = (m, k) => `${Math.round(sum(m, k) / sum(m, "links") * 100)}%`;
+  const table = (id, head, rows) => { document.getElementById(id).innerHTML = `<thead><tr><th>${head}</th>${MODELS.map(([m]) => `<th>${SHORT[m]}</th>`).join("")}</tr></thead><tbody>` + rows.map(([l, f]) => `<tr><td>${esc(l)}</td>${MODELS.map(([m]) => `<td>${f(m)}</td>`).join("")}</tr>`).join("") + "</tbody>"; };
+  table("profile", "12 runs per model", [
+    ["Mean score", (m) => f3(avg(m, (r) => scoreOf(r, "mean")))],
+    ["Report length (words)", (m) => Math.round(avg(m, (r) => r.words)).toLocaleString()],
+    ["Notes given to the writer (words)", (m) => Math.round(avg(m, (r) => r.notes)).toLocaleString()],
+    ["Links in all reports", (m) => sum(m, "links").toLocaleString()],
+    ["… to a page no tool reported", (m) => `${sum(m, "offtool")} (${pct(m, "offtool")})`],
+    ["… of those, bare home pages", (m) => sum(m, "home")],
+    ["Cost per report", (m) => `$${avg(m, (r) => r.cost).toFixed(2)}`],
+    ["Time per report", (m) => `${(avg(m, (r) => r.seconds) / 60).toFixed(1)} min`],
+  ]);
+  for (const [id, m, k] of [["offD", "deepseek", "offtool"], ["offH", "haiku", "offtool"], ["offL", "luna", "offtool"]]) document.getElementById(id).textContent = pct(m, k);
+
+  const g = M.gapStats, L = g.lead;
+  const put = (id, t) => { document.getElementById(id).textContent = t; }, pc = (x) => `${Math.round(x * 100)}%`;
+  put("leadTotal", g.lead_total.toFixed(3)); put("shareRange", `${pc(g.share_narrow)} to ${pc(g.share_wide)}`); put("shareNow", pc(g.share));
+  put("shareLo", pc(g.share_narrow)); put("shareHi", pc(g.share_wide)); put("bestCells", g.best_cells); put("rAll", g.r_words.toFixed(2)); put("rHL", g.r_words_hl.toFixed(2));
+  // Running total: each bar starts where the previous one ended, and the last bar is the sum.
+  const scale = L.other + L.derived;
+  let at = 0;
+  const bar = (label, v, cls) => {
+    const from = cls === "t" ? 0 : at, to = from + v;
+    at = to;
+    return `<div class="lb ${cls}"><span class="lbl">${label}</span><span class="lbt"><i style="left:${Math.min(from, to) / scale * 100}%;width:${Math.abs(v) / scale * 100}%"></i>${cls === "t" ? "" : `<u style="left:${to / scale * 100}%"></u>`}</span><b class="num">${sgn(v)}</b></div>`;
+  };
+  document.getElementById("leadbars").innerHTML =
+    bar(`Other criteria <span class="muted">${100 - Math.round(g.parts.haiku.dw * 100)}% of weight</span>`, L.other, "o") +
+    bar(`Derived criteria <span class="muted">${Math.round(g.parts.haiku.dw * 100)}% of weight</span>`, L.derived, "d") +
+    bar(`Penalties <span class="muted">subtract</span>`, L.penalty, "p") + bar("DeepSeek's lead", g.lead_total, "t");
+  table("shares", "Share of weight earned", [
+    [`On the ${g.n_both} derived criteria`, (m) => g.parts[m].dshare.toFixed(3)],
+    ["On the other criteria", (m) => g.parts[m].oshare.toFixed(3)],
+  ]);
+}
+
+// Section 2: how one score is calculated, from the rubric weights to the number in the table.
+// Each judge row reads as the formula itself: [criteria boxes] earned − [penalty boxes] penalties ÷ positive weights = score.
+const fstate = { q: "Q2", m: "deepseek", p: "baseline" };
+const VERDICT = { 1: "Satisfied", 0.5: "Partially", 0: "Not satisfied" };
+const PEN_VERDICT = { 1: "fault found", 0.5: "fault partly found", 0: "no fault" };
+const num = (x) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
+function judgeCalc(r, j) {
+  let earned = 0, pen = 0;
+  for (const c of qOf(r.q).criteria) {
+    const s = G[r.id][c.index][j].s;
+    if (c.weight > 0) earned += c.weight * s; else pen += -c.weight * s;
+  }
+  return { earned, pen, score: (earned - pen) / qOf(r.q).positive_weight };
+}
+function renderFormulaControls() {
+  const pick = (k) => (id) => { fstate[k] = id; renderFormula(); };
+  renderSeg(document.getElementById("fQSeg"), M.questions.map((q) => [q.id, q.id]), fstate.q, pick("q"));
+  renderSeg(document.getElementById("fMSeg"), MODELS.map(([m]) => [m, SHORT[m]]), fstate.m, pick("m"));
+  renderSeg(document.getElementById("fPSeg"), PIPES, fstate.p, pick("p"));
+}
+function markTableCell() {
+  for (const td of document.querySelectorAll("#matrix td[data-calc]")) {
+    const [m, p] = td.dataset.calc.split("|");
+    td.classList.toggle("fsel", td.closest("tr").dataset.q === fstate.q && m === fstate.m && p === fstate.p);
+  }
+}
+function renderFormula() {
+  renderFormulaControls();
+  const q = qOf(fstate.q), r = rep(fstate.q, fstate.m, fstate.p);
+  const pos = q.criteria.filter((c) => c.weight > 0), neg = q.criteria.filter((c) => c.weight < 0);
+  const posW = q.positive_weight, negW = neg.reduce((s, c) => s - c.weight, 0), hasPen = neg.length > 0;
+  const lvl = (s) => (s === 1 ? " s" : s === 0.5 ? " p" : "");
+  const seg = (c, j) => {
+    const s = j ? G[r.id][c.index][j].s : null;
+    return `<i class="fseg${lvl(s)}" style="--w:${Math.abs(c.weight)}" data-c="${c.index}"${j ? ` data-j="${j}"` : ""} tabindex="-1">${s == null ? `<span>${Math.abs(c.weight)}</span>` : ""}</i>`;
+  };
+  const row = (cls, label, sub, j, earned, pen, eq) =>
+    `<div class="frow2 ${cls}"><div class="flab"><b>${label}</b><span>${sub}</span></div><div class="fpar">${j ? "(" : ""}</div>` +
+    `<div class="fbar">${pos.map((c) => seg(c, j)).join("")}</div><div class="fnum">${earned}</div>` +
+    (hasPen ? `<div class="fop">${j ? "−" : ""}</div><div class="fbar pen">${neg.map((c) => seg(c, j)).join("")}</div><div class="fnum pen">${pen}</div>` : "") +
+    `<div class="fpar">${j ? ")" : ""}</div><div class="feq">${eq}</div></div>`;
+  const calcs = JUDGES.map((j) => ({ j, ...judgeCalc(r, j.id) }));
+  const avg = mean(calcs.map((c) => c.score));
+  const tableIs = state.judge === "mean" ? "mean" : state.judge;
+  const badge = `<span class="fbadge">= the table</span>`;
+  const heads = `<div class="frow2 fcols" aria-hidden="true"><span></span><span></span><span>Criteria (box width = weight)</span><span>Earned</span>${hasPen ? `<span></span><span>Penalties</span><span></span>` : ""}<span></span><span>Score</span></div>`;
+
+  let h = `<div class="fformula"><span>Score</span><span>=</span><span class="frac"><span>earned points${hasPen ? " − penalty points" : ""}</span><span>sum of positive weights</span></span></div>` +
+    `<p class="fwhere">A judge marks every criterion 1 (satisfied), ½ (partially) or 0. <b>Earned points</b> add up weight × mark over the criteria.${hasPen ? " <b>Penalty points</b> do the same over the penalty criteria, which describe faults (for example an unsupported claim): a fault the judge finds is subtracted." : ""}</p>` +
+    `<div class="fwhich">Worked example: <b>${esc(q.id)} · ${esc(modelName(fstate.m))} · ${fstate.p === "ebd" ? "EBD" : "Baseline"}</b> · report <a href="${M.repo}${r.id}.md" target="_blank" rel="noopener">${r.id}</a></div>`;
+  h += `<div class="fstep"><span class="n">1</span>The rubric: ${pos.length} criteria worth ${posW} points${hasPen ? ` and ${neg.length} penalty criteria worth up to ${negW}` : ""}. Each box is one criterion, as wide as its weight.</div>` +
+    heads + row("frub", `${q.id} rubric`, "weights", null, posW, hasPen ? negW : "", `possible points; every score divides by ${posW}`);
+  h += `<div class="fstep"><span class="n">2</span>Each judge fills the boxes with its marks. Each row is that judge's score.</div>` +
+    `<div class="flegend"><span class="lg"><b>Criteria</b><span><i class="fseg s"></i>1</span><span><i class="fseg p"></i>½</span><span><i class="fseg"></i>0</span></span>` +
+    (hasPen ? `<span class="lg pen"><b>Penalties</b><span><i class="fseg s"></i>found</span><span><i class="fseg p"></i>½</span><span><i class="fseg"></i>none</span></span>` : "") + `</div>`;
+  for (const c of calcs) {
+    const mine = tableIs === c.j.id;
+    h += row(`fjudge${mine ? " ftable" : ""}`, esc(c.j.label), esc(c.j.tool), c.j.id, num(c.earned), num(c.pen),
+      `÷ ${posW} = <b>${c.score.toFixed(4)}</b>${mine ? badge : ""}`);
+  }
+  const mine = tableIs === "mean";
+  h += `<div class="fstep"><span class="n">3</span>The table shows the mean of the three judges, rounded to 3 decimals${mine ? "" : " (with one judge picked above the table, it shows that judge's score instead)"}.</div>` +
+    `<div class="fmean${mine ? " ftable" : ""}"><b class="flabm">Mean of 3 judges</b><span class="fmeq">(${calcs.map((c) => c.score.toFixed(4)).join(" + ")}) ÷ 3 = ${avg.toFixed(4)} → <b class="fout">${f3(avg)}</b>${mine ? badge : ""}</span></div>` +
+    `<p class="fnote" id="fnote" aria-live="polite">Tap or hover a box to read its criterion and the judges' marks.</p>`;
+
+  const el = document.getElementById("fcalc");
+  const colsD = `120px 10px minmax(0, ${posW}fr) 40px${hasPen ? ` 18px minmax(0, ${negW}fr) 32px` : ""} 10px 168px`;
+  const colsP = `8px minmax(0, ${posW}fr) 32px${hasPen ? ` 12px minmax(0, ${negW}fr) 26px` : ""} 8px`;
+  el.style.setProperty("--colsD", colsD);
+  el.style.setProperty("--colsP", colsP);
+  el.innerHTML = h;
+  const note = document.getElementById("fnote");
+  const explain = (e) => {
+    const b = e.target.closest(".fseg[data-c]");
+    if (!b) return;
+    const c = q.criteria.find((x) => x.index === Number(b.dataset.c));
+    const marks = JUDGES.map((j) => { const s = G[r.id][c.index][j.id].s; return `${j.label}: ${c.weight > 0 ? VERDICT[s] : PEN_VERDICT[s]} (${c.weight > 0 ? "+" : "−"}${num(Math.abs(c.weight) * s)})`; }).join(" · ");
+    const where = c.weight > 0 ? `Criterion ${pos.indexOf(c) + 1} of ${pos.length}` : `Penalty ${neg.indexOf(c) + 1} of ${neg.length}`;
+    note.innerHTML = `<b>${where} · weight ${Math.abs(c.weight)} · ${esc(c.axis)}</b> ${esc(c.criterion)}<br><span class="muted">${esc(marks)}</span>`;
+    el.querySelectorAll(".fseg.hl").forEach((x) => x.classList.remove("hl"));
+    el.querySelectorAll(`.fbar .fseg[data-c="${c.index}"]`).forEach((x) => x.classList.add("hl"));
+  };
+  el.onmouseover = explain;
+  el.onclick = explain;
+  markTableCell();
+}
+function showFormula(q, m, p) {
+  Object.assign(fstate, { q, m, p });
+  renderFormula();
+  document.getElementById("formula").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+
+function renderCards() {
+  document.getElementById("qgrid").innerHTML = M.questions.map((q) => {
+    const d = MODELS.map(([m, l]) => {
+      const x = scoreOf(rep(q.id, m, "ebd")) - scoreOf(rep(q.id, m, "baseline"));
+      return `<span class="chip">${esc(l.split(" ")[0])} <b class="${x >= 0 ? "pos" : "negc"}">${sgn(x)}</b></span>`;
+    }).join("");
+    return `<button type="button" class="qcard" data-q="${q.id}" aria-current="${q.id === state.q}">
+      <div class="qtop"><span class="qid">${q.id}</span><span class="chip">${q.criteria.length} criteria</span></div>
+      <div class="chips"><span class="chip"><b>${esc(q.domain)}</b></span><span class="chip">Breadth: ${esc(q.breadth)}</span><span class="chip">Nesting: ${esc(q.nesting)}</span><span class="chip">Exploration: ${esc(q.exploration)}</span></div>
+      <p class="prompt">${esc(q.prompt)}</p>
+      <div class="qmini"><span class="muted">EBD − baseline:</span>${d}</div></button>`;
+  }).join("");
+  document.getElementById("qgrid").onclick = (e) => { const c = e.target.closest(".qcard"); if (c) pickQ(c.dataset.q, true); };
+}
+
+function renderDetail() {
+  const q = qOf(state.q);
+  document.getElementById("d-eyebrow").textContent = `${q.id} · ${q.domain} · breadth ${q.breadth} · nesting ${q.nesting} · exploration ${q.exploration}`;
+  document.getElementById("d-h").textContent = `6 · Scores on ${q.id}`;
+  document.getElementById("d-prompt").textContent = q.prompt;
+  let h = `<thead><tr><th>Model</th><th>Pipeline</th>${JUDGES.map((j) => `<th class="n">${esc(j.label)}</th>`).join("")}<th class="n">Mean</th><th class="n">Words</th><th class="n">Researchers</th><th class="n">Cost</th><th>Report</th></tr></thead><tbody>`;
+  for (const [m, l] of MODELS) {
+    const b = rep(q.id, m, "baseline"), e = rep(q.id, m, "ebd");
+    const row = (r, tag) => `<tr><td class="muted">${esc(l)}</td><td>${tag}</td>${JUDGES.map((j) => `<td class="n">${scoreCell(r.scores[j.id])}</td>`).join("")}<td class="n"><b class="num">${f3(scoreOf(r, "mean"))}</b></td><td class="n num">${r.words.toLocaleString()}</td><td class="n num">${r.researchers} · ${r.rounds} rd</td><td class="n num">$${r.cost.toFixed(2)}</td><td><a href="${M.repo}${r.id}.md" target="_blank" rel="noopener">${r.id}</a></td></tr>`;
+    h += row(b, `<span class="tag-base">Baseline</span>`) + row(e, `<span class="tag-ebd">EBD</span>`);
+    h += `<tr><td></td><td class="muted">Δ EBD − baseline</td>${JUDGES.map((j) => `<td class="n">${deltaCell(e.scores[j.id] - b.scores[j.id])}</td>`).join("")}<td class="n">${deltaCell(scoreOf(e, "mean") - scoreOf(b, "mean"))}</td><td colspan="4"></td></tr>`;
+  }
+  document.getElementById("dtable").innerHTML = h + "</tbody>";
+}
+
+function verdictDots(grades, cls) {
+  return `<span class="dots ${cls}">${JUDGES.map((j) => {
+    const g = grades[j.id]; const k = g.s === 1 ? "s" : g.s === 0.5 ? "p" : "n";
+    return `<i class="dot ${k}" title="${esc(j.label)}: ${esc(g.v)}"></i>`; }).join("")}</span>`;
+}
+
+function renderRubric() {
+  const q = qOf(state.q);
+  const b = rep(q.id, state.model, "baseline"), e = rep(q.id, state.model, "ebd");
+  const val = (rid, c) => (state.judge === "mean" ? mean(JUDGES.map((j) => G[rid][c][j.id].s)) : G[rid][c][state.judge].s);
+  let tb = 0, te = 0, h = `<thead><tr><th>#</th><th>Axis</th><th class="n">Weight</th><th>Criterion</th><th><span class="tag-base">Baseline</span></th><th><span class="tag-ebd">EBD</span></th></tr></thead><tbody>`;
+  for (const c of q.criteria) {
+    const sb = val(b.id, c.index), se = val(e.id, c.index);
+    const pb = c.weight * sb, pe = c.weight * se;
+    tb += pb; te += pe;
+    const differs = Math.abs(sb - se) >= 0.375;
+    if (state.diffOnly && !differs) continue;
+    const key = `${q.id}:${state.model}:${c.index}`, open = state.open.has(key);
+    h += `<tr class="click${differs ? " differs" : ""}${open ? " expanded" : ""}" tabindex="0" data-key="${key}">
+      <td class="num">${c.index}</td><td class="axis">${esc(c.axis.replace(" Criteria", "").replace(" of Information", ""))}</td>
+      <td class="n"><span class="w${c.weight < 0 ? " neg" : ""}">${c.weight > 0 ? "+" : ""}${c.weight}</span></td>
+      <td class="crit">${esc(c.criterion)}${c.weight < 0 ? `<span class="penalty">penalty</span>` : ""}</td>
+      <td><div class="cell">${verdictDots(G[b.id][c.index], "c-base")}<span class="pts">${pb >= 0 ? "+" : "−"}${Math.abs(pb).toFixed(2)}</span></div></td>
+      <td><div class="cell">${verdictDots(G[e.id][c.index], "c-ebd")}<span class="pts">${pe >= 0 ? "+" : "−"}${Math.abs(pe).toFixed(2)}</span></div></td></tr>`;
+    if (open) {
+      const col = (r, tag) => `<div class="whycol"><div>${tag}</div>${JUDGES.map((j) => { const g = G[r.id][c.index][j.id];
+        return `<div class="jv"><div class="top"><span>${esc(j.label)}</span><span>${esc(g.v)}</span></div><div>${esc(g.why)}</div>${g.quotes.length ? `<q>${esc(g.quotes[0])}</q>` : ""}${g.missing.length ? `<div class="muted">Missing: ${esc(g.missing.join("; "))}</div>` : ""}</div>`; }).join("")}</div>`;
+      h += `<tr class="why"><td colspan="6"><div class="whygrid">${col(b, `<span class="tag-base">Baseline · ${b.id}</span>`)}${col(e, `<span class="tag-ebd">EBD · ${e.id}</span>`)}</div></td></tr>`;
+    }
+  }
+  const pw = q.positive_weight;
+  h += `<tr class="totals"><td colspan="4">Total points ÷ positive weights (${pw}) = score</td><td class="num">${tb.toFixed(2)} ÷ ${pw} = <b>${f3(tb / pw)}</b></td><td class="num">${te.toFixed(2)} ÷ ${pw} = <b>${f3(te / pw)}</b></td></tr></tbody>`;
+  const t = document.getElementById("rtable");
+  t.innerHTML = h;
+  const toggle = (row) => { const k = row.dataset.key; state.open.has(k) ? state.open.delete(k) : state.open.add(k); renderRubric(); };
+  t.onclick = (ev) => { const r = ev.target.closest("tr[data-key]"); if (r) toggle(r); };
+  t.onkeydown = (ev) => { const r = ev.target.closest("tr[data-key]"); if (r && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); toggle(r); } };
+}
+
+function renderAll() {
+  const judgeItems = [["mean", "Mean of 3 judges"], ...JUDGES.map((j) => [j.id, `${j.label} · ${j.tool}`])];
+  renderSeg(document.getElementById("judgeSeg"), judgeItems, state.judge, (pick) => { state.judge = pick; renderAll(); });
+  const pickModel = (id) => { state.model = id; renderSeg(document.getElementById("modelSeg"), MODELS, state.model, pickModel); renderRubric(); };
+  renderSeg(document.getElementById("modelSeg"), MODELS, state.model, pickModel);
+  renderFacts(); renderMatrix(); renderFormula(); renderDMatrix(); renderGPlot(); renderEvidence(); renderProfile(); renderCards(); renderDetail(); renderRubric();
+}
+function pickQ(id, scroll) {
+  state.q = id;
+  try { history.replaceState(null, "", "#" + id.toLowerCase()); } catch (_) { location.hash = id.toLowerCase(); }
+  renderMatrix(); renderDMatrix(); renderCards(); renderDetail(); renderRubric();
+  if (scroll) document.getElementById("detail").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+function fromHash() { const m = /^#q([1-6])$/i.exec(location.hash); if (m) state.q = "Q" + m[1]; }
+
+async function start() {
+  try {
+    const [meta, grades] = await Promise.all([fetch("meta.json").then((r) => r.json()), fetch("grades.json").then((r) => r.json())]);
+    // Primary judges: one per model family. Opus 5.5 (claude-code) shares Fable's family and is left out.
+    M = meta; JUDGES = meta.judges.filter((j) => j.id !== "claude-code");
+    for (const g of grades) ((G[g.r] ??= {})[g.c] ??= {})[g.j] = g;
+    for (const r of M.reports) for (const j of meta.judges) r.scores[j.id] = judgeCalc(r, j.id).score;
+    fromHash();
+    document.getElementById("diffOnly").onchange = (e) => { state.diffOnly = e.target.checked; renderRubric(); };
+    addEventListener("hashchange", () => { fromHash(); pickQ(state.q, false); });
+    renderAll();
+  } catch (err) {
+    document.getElementById("facts").innerHTML = `<div class="fact"><b>Could not load the scores</b><span>${esc(err.message)}</span></div>`;
+  }
+}
+start();
+</script>
