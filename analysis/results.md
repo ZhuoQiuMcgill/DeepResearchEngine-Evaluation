@@ -6,7 +6,7 @@ Figures (`python analysis/plots.py`): [matrix](figures/1_matrix_ebd_minus_baseli
 
 Read with these limits:
 
-- One run per question, model and pipeline: 12 pairs in the main comparison (Haiku 5.5, GPT-6 Luna) and 6 for DeepSeek, which ran under different conditions (built-in deep search without a tool cap, round cap 3) and is analysed separately.
+- One run per question, model and pipeline: 12 pairs in the main comparison (Haiku 5.5, GPT-6 Luna) and 6 for DeepSeek, which ran under different conditions (reasoning effort high against medium, built-in deep search without a tool cap, a larger researcher output limit, round cap 3 instead of 8 that no run reached) and is analysed separately.
 - Both pipelines had the same ceiling of 6 researchers, not the same spend. EBD used more researchers, rounds, money and time (section 6), so a difference includes what that extra work bought.
 - The judges graded correctness only against the rubric and the report itself, not their own knowledge. Neon's subagents could not confirm their model.
 - The References axis has two criteria in one rubric (Q3); its large difference rests on one question.
@@ -103,9 +103,13 @@ Length within pairs: does the score difference follow the word difference?
 | DeepSeek V4.1 Flash | baseline | 5.2 | 1 | 1.2 | 33.2 | 83.8 | 4242 | 0.136 | 470 |
 | DeepSeek V4.1 Flash | ebd | 4.7 | 1 | 1.5 | 27.0 | 71.3 | 3844 | 0.155 | 774 |
 
+Searches and page reads compare the two pipelines on one model, not the models with each other: each provider counts its own tool actions. Anthropic counts fetch requests; OpenAI and DeepSeek also count find-in-page actions on an open page; one OpenAI or DeepSeek search can hold several queries. The caps differ too: DeepSeek's search had none.
+
 ## 7. Same pipeline, different model
 
-Each model's score on each question with each pipeline (primary mean of three judges). **Bold**: the best model on that question and pipeline. Gap: best minus worst. DeepSeek ran under its own conditions (see the limits at the top), so here "DeepSeek" means the model together with its deep search and round cap.
+> Corrected on 2026-11-25. The first version of this section (commit 14dd487) showed seven criteria picked after seeing the scores, ranked the causes without measuring them, and mislabelled several run measures (page reads, researcher tokens, unreported links) and left out that DeepSeek ran at a higher reasoning effort. Those parts are replaced below. The scores and gaps are unchanged.
+
+Each model's score on each question with each pipeline (primary mean of three judges). **Bold**: the best model on that question and pipeline. Gap: best minus worst. The models did not run under equal conditions: DeepSeek ran at high reasoning effort (its API maps medium to high) and the other two at medium; its search had no tool cap; its researchers could write 64k tokens, against 21k for Haiku and 32k for Luna. Each model used its own provider's search. A gap is between these setups, not between models alone.
 
 | Question | Baseline Haiku | Baseline Luna | Baseline DeepSeek | Baseline gap | EBD Haiku | EBD Luna | EBD DeepSeek | EBD gap |
 |---|---|---|---|---|---|---|---|---|
@@ -119,48 +123,64 @@ Each model's score on each question with each pipeline (primary mean of three ju
 
 Mean row: each model's mean over the six questions; its gap column is the mean of the six gaps.
 
-The same model leads in both pipelines under every primary judge on Q3 (DeepSeek), Q4 (DeepSeek), Q5 (DeepSeek). The full order of the three models is the same in both pipelines on Q5. On Q1, Q2, Q6 the leader changes between pipelines or judges, so most of those gaps are run-to-run variation; with one run per cell the data cannot separate them further.
+The same model leads in both pipelines under every primary judge on Q3 (DeepSeek), Q4 (DeepSeek), Q5 (DeepSeek). On Q1, Q2, Q6 the leader depends on the pipeline or the judge. With one run per cell, neither a gap nor a change in a gap can be told apart from run-to-run variation.
 
-### Run profile by model (mean of 12 runs, both pipelines)
+### Run profile by model (12 runs each, both pipelines)
 
-| Model | Mean score | Report words | Pages opened | Searches | Researcher notes (tokens) | Writer input (tokens) | Report URLs (unreported by tools) | Cost (USD) | Time (min) |
-|---|---|---|---|---|---|---|---|---|---|
-| Haiku 5.5 | 0.600 | 2,709 | 2 | 34 | 61.6k | 38.9k | 739 (1) | 0.488 | 4.8 |
-| GPT-6 Luna | 0.623 | 2,255 | 10 | 21 | 29.1k | 20.6k | 452 (3) | 0.261 | 4.0 |
-| DeepSeek V4.1 Flash | 0.721 | 4,043 | 78 | 30 | 93.9k | 41.1k | 926 (4) | 0.145 | 10.4 |
+| Model | Mean score | Report words | Words of notes given to the writer | Links in reports | To a page no search tool reported | Of those, bare home pages | Cost (USD) | Time (min) |
+|---|---|---|---|---|---|---|---|---|
+| Haiku 5.5 | 0.600 | 2,709 | 12,308 | 878 | 5 (1%) | 0 | 0.488 | 4.8 |
+| GPT-6 Luna | 0.623 | 2,255 | 11,222 | 609 | 18 (3%) | 0 | 0.261 | 4.0 |
+| DeepSeek V4.1 Flash | 0.721 | 4,043 | 21,855 | 1,489 | 456 (31%) | 354 | 0.145 | 10.4 |
 
-Pages opened: pages the researchers' search tools read in full (DeepSeek's deep search opens pages by itself). Unreported URLs: links in the report that the search tools never returned.
+Links are counted at every occurrence. Pages are compared as the engine does it, without query string or fragment (`build_run_columns.py`). A link outside the tool-reported pages is not proven wrong: failed or redirected page opens are not recorded for DeepSeek. 452 of its 456 such links already stand in the researchers' notes, where the engine marks them "(unverified link)" for the writer. The judges did not open links or check facts. Cost uses list prices with assumed search fees for Haiku and Luna and none for DeepSeek, so it does not compare the models' token cost.
 
-Correlation with the score within the same question and pipeline (each group's mean removed, 36 reports):
+Correlation with the score within the same question and pipeline (group means removed, 36 reports): report words +0.55, words of notes +0.51. Among the 24 Haiku and Luna reports alone: +0.18 and -0.17. The first pair therefore mostly reflects DeepSeek against the others.
 
-| Measure | r |
-|---|---|
-| Report words | +0.55 |
-| Pages opened | +0.65 |
-| Researcher notes (tokens) | +0.48 |
-| Writer input (tokens) | +0.25 |
+### Does committing to a derived answer explain the gap?
 
-These measures move together with the model (DeepSeek is high on all of them), so a correlation here does not separate the measure from the model.
+The idea to test: some criteria need a result the report must work out itself (an estimate or calculation for this case, a forecast, a verdict or proof), and the models may differ in how readily they commit to one. Two agents classified all 139 criteria from the questions, criteria and weights, without scores, reports or model names, using one written rule. They agreed on 139 of 139 (Cohen's κ 1.00); they are two instances of one model, so this shows that the rule can be applied consistently, not that it is the right rule. The rule was written after the scores were known. 15 criteria count as derived, 15% of the positive weight (averaged over questions). Fault (negative) criteria are separate. The comparison was fixed before the classification was read. The classification is in `derived_criteria.csv`, the rule and the borderline cases in `derived_rule.md`.
 
-### Criteria that need a derived answer
+| | Haiku | Luna | DeepSeek | DeepSeek minus the mean of the other two |
+|---|---|---|---|---|
+| Share of derived-criteria weight earned | 0.430 | 0.387 | 0.674 | +0.266 |
+| Share of other-criteria weight earned | 0.677 | 0.704 | 0.791 | +0.100 |
+| Points of mean score from derived criteria | 0.063 | 0.057 | 0.099 | +0.039 |
+| Points from other criteria | 0.577 | 0.600 | 0.674 | +0.085 |
+| Points lost to penalties | -0.040 | -0.034 | -0.052 | -0.015 |
+| Mean score | 0.600 | 0.623 | 0.721 | +0.109 |
 
-Verdicts averaged over the three primary judges (1 satisfied, 0.5 partially, 0 not), in the order Haiku / Luna / DeepSeek. **Bold**: the highest in that pipeline.
+Derived criteria carry 36% of DeepSeek's lead on 15% of the weight; the other criteria add +0.085 of the +0.109, and DeepSeek loses 0.015 more to penalties. Leaving out one question at a time, the lead on derived criteria stays between +0.230 and +0.301, on other criteria between +0.071 and +0.121. It is larger on derived than on other criteria in Q3, Q4, Q5, Q6, not in Q1 (5 questions have derived criteria).
+
+The share depends on the classification. With Q5 #20 (equations or proofs) and Q4 #21 (quantifiable metrics) counted as derived, which both agents called borderline, it is 55%; without Q5 #6 (a definite yes or no), 27%.
+
+All derived criteria (verdict averaged over the three primary judges; Haiku / Luna / DeepSeek):
 
 | Question | # | Criterion | Weight | Baseline | EBD |
 |---|---|---|---|---|---|
-| Q5 | 6 | Gives a definitive yes or no | +5 | 0.17 / 0.67 / **0.83** | 0.17 / 0.67 / **1.00** |
-| Q5 | 20 | Includes equations or proofs | +4 | 0.00 / 0.67 / **1.00** | 0.00 / 0.50 / **1.00** |
-| Q3 | 3 | Shows at least 4 intermediate calculations | +4 | **1.00** / 0.33 / **1.00** | **1.00** / 0.00 / **1.00** |
-| Q3 | 8 | Estimates the cost of opening the branch | +4 | 0.33 / 0.67 / **1.00** | 0.33 / 0.67 / **1.00** |
-| Q4 | 21 | Framework has at least 2 quantifiable metrics | +4 | 0.00 / 0.00 / **0.67** | 0.33 / 0.00 / **1.00** |
-| Q4 | 22 | Applies the framework to several current states | +5 | 0.17 / 0.00 / **1.00** | 0.33 / **0.67** / 0.50 |
-| Q6 | 8 | Gives a budget or cost analysis | +4 | 0.50 / 0.17 / **1.00** | 0.50 / 0.50 / **1.00** |
+| Q1 | 18 | The response contains at least three steps for each derivation. | +3 | **1.00** / **1.00** / 0.33 | **1.00** / 0.67 / **1.00** |
+| Q3 | 1 | The response should provide explicit yearly revenue estimates for at least 5 consecutive years after U.S. mark… | +5 | 0.00 / 0.00 / 0.00 | **1.00** / 0.67 / **1.00** |
+| Q3 | 2 | The response should clearly state at least 4 explicit numerical assumptions used to build the revenue estimate… | +3 | **1.00** / 0.67 / **1.00** | **1.00** / 0.67 / **1.00** |
+| Q3 | 3 | The response should present at least 4 intermediate numerical calculations that clearly connect assumptions to… | +4 | **1.00** / 0.33 / **1.00** | **1.00** / 0.00 / **1.00** |
+| Q3 | 8 | The response should address the cost of opening a new U.S. branch by providing at least one numerical estimate… | +4 | 0.33 / 0.67 / **1.00** | 0.33 / 0.67 / **1.00** |
+| Q3 | 13 | The response should provide confidence intervals (e.g., 95%) for every major numerical estimate, such as yearl… | +2 | 0.00 / 0.00 / 0.00 | 0.00 / 0.00 / 0.00 |
+| Q3 | 17 | The response should consider hiring and talent acquisition as a key cost for setting up the U.S. branch. It mu… | +5 | 0.17 / 0.00 / **0.50** | **0.33** / 0.00 / **0.33** |
+| Q3 | 19 | The response should build at least one statistical or mathematical model to support revenue forecasting. A mod… | +2 | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 |
+| Q4 | 20 | The response explicitly connects the ideological frameworks discussed across the three revolutions to modern m… | +4 | 0.00 / 0.00 / 0.00 | 0.00 / 0.17 / **0.33** |
+| Q4 | 22 | The response uses specific details from the framework it creates and applies them to several contemporary stat… | +5 | 0.17 / 0.00 / **1.00** | 0.33 / **0.67** / 0.50 |
+| Q5 | 6 | The response provides a definitive yes or no answer to the prompt rather than stating the topic is merely "com… | +5 | 0.17 / 0.67 / **0.83** | 0.17 / 0.67 / **1.00** |
+| Q6 | 8 | The response provides a budget plan or cost analysis that considers the cost of the recommended components nec… | +4 | 0.50 / 0.17 / **1.00** | 0.50 / 0.50 / **1.00** |
+| Q6 | 11 | The response provides calculations to demonstrate how the recommended system can accommodate 1M users/day (e.g… | +3 | **1.00** / 0.00 / **1.00** | 0.83 / 0.83 / **1.00** |
+| Q6 | 13 | The response includes an expected high-level timeline to implement concrete deliverables, along with estimated… | +4 | 0.17 / 0.17 / **0.50** | 0.17 / 0.17 / 0.17 |
+| Q6 | 14 | The response outlines a plan for managing technical debt in the future, including estimates for manpower, key … | +3 | **0.33** / 0.17 / 0.17 | 0.00 / **0.17** / **0.17** |
 
-### Why the gaps appear
+Share of derived weight earned per question (Haiku / Luna / DeepSeek): Q1 1.00 / 0.83 / 0.67 (n=1); Q3 0.56 / 0.36 / 0.70 (n=7); Q4 0.14 / 0.22 / 0.49 (n=2); Q5 0.17 / 0.67 / 0.92 (n=1); Q6 0.42 / 0.27 / 0.63 (n=4).
 
-Interpretation of the tables above; the reports quoted are in `reports/`.
+### What this shows, and what it does not
 
-1. **Committing to an answer no source states.** Q3 asks for revenue estimates, Q4 for a forecast of future revolutions, Q5 to "prove definitely". The answer has to be derived, and the criteria in the table above carry heavy weight for that step. The shared writer prompt (`src/writer/writer.ts` in the engine) says a number without a source URL "must not appear in the report", that "five well-sourced claims beat twenty half-sourced ones", and asks the writer to be "epistemically honest". Haiku and Luna mostly hold back under these rules (Luna on estimates and forecasts, Haiku on the Q5 verdict); DeepSeek derives the figure and shows how. Haiku's Q5 baseline report (R967ed13f) says no formal result establishes the guarantee and none proves the opposite "in full generality"; DeepSeek's (R4141c12b) opens with "Verdict: no unconditional mathematical guarantee exists". Luna's Q4 baseline report (R6b7b9320) offers "conditional scenarios, not forecasts about a specific country or date"; DeepSeek's (R0b63ad33) applies its framework to named countries with probabilities. Luna's Q6 baseline report (Rc4b44883) says no cost estimate "follows from a daily-user target alone". Exceptions: Haiku does show its Q3 calculations, and with EBD Luna applies the Q4 framework more fully than DeepSeek. The judges grade against the rubric and do not check facts, so a committed estimate earns its points whether or not it is right.
-2. **Length and coverage.** Most criteria ask whether the report includes something. DeepSeek writes 4,043 words on average, Haiku 2,709, Luna 2,255, and within a question and pipeline longer reports score higher (table above). Q6, whose rubric has 27 criteria, is the clearest case: with the baseline DeepSeek's 7,999-word report scores 0.888 and Luna's 1,931-word report 0.633.
-3. **Each model brings its own search tool.** The pipeline fixes the steps, not the search: every researcher uses its provider's built-in web search. DeepSeek opens about 78 pages per run, Luna 10 and Haiku 2; Luna returns the fewest notes, so its writer gets about half the material of the other two and writes the shortest reports. Evidence is not the whole story: in the engine's run records, Haiku's Q5 notes cover inverse reinforcement learning in both runs and Rice's theorem in the EBD run (criteria 9 and 1), and neither Haiku report mentions either.
-4. **EBD narrows coverage gaps, not commitment gaps.** The mean gap is 0.215 with the baseline and 0.157 with EBD. It shrinks on Q1 0.138 → 0.019, Q4 0.209 → 0.111 and Q6 0.255 → 0.120, where EBD's suggested outline of the question's parts likely makes every model cover them, and barely moves on Q3 0.247 → 0.253 and Q5 0.353 → 0.326: an outline lists the parts but does not make a model commit to a number or a verdict.
+1. **DeepSeek scores higher overall, under favourable conditions.** Its mean is +0.109 against the mean of the other two (+0.132 with the baseline, +0.087 with EBD). It is best in 8 of 12 question and pipeline cells, and leads Q3, Q4 and Q5 in both pipelines under every primary judge. On Q1 and Q2 it is below the mean of the other two (-0.040 and -0.039). Effort, search and output limit differ with the model, so this data cannot separate them.
+2. **Derived answers are part of the lead; how much depends on the classification (27% to 55%).** DeepSeek's lead is larger on derived criteria (+0.266 of their weight against +0.100). It is not uniform: on the five-year revenue criterion (Q3 #1) no baseline report scores and with EBD Haiku does as well as DeepSeek; on applying the framework (Q4 #22) Luna is ahead with EBD; on Q1 #18 DeepSeek is behind with the baseline.
+3. **Why the models differ there was not tested.** The shared writer prompt pulls both ways. A number or finding without a source URL in the notes "must not appear in the report" and "five well-sourced claims beat twenty half-sourced ones", but the report should also "take positions where the evidence supports them". That some models read this more cautiously is a guess; testing it would need runs with a changed prompt.
+4. **DeepSeek's reports are longer (4,043 words against 2,709 and 2,255) and its writer gets more notes (21,855 words against 12,308 and 11,222).** Across the models longer reports score higher, but hardly within Haiku and Luna, and Haiku writes more than Luna and scores lower.
+5. **31% of DeepSeek's links point to a page that no search tool reported** (456 of 1,489; Haiku 0.6%, Luna 3.0%). 354 of them are bare home pages, the other 102 are specific pages. The judges graded against the rubric without opening links, so a higher score does not show a more reliable report.
+6. **The mean gap is 0.215 with the baseline and 0.157 with EBD**: Q1 0.138 → 0.019, Q2 0.085 → 0.116, Q3 0.247 → 0.253, Q4 0.209 → 0.111, Q5 0.353 → 0.326, Q6 0.255 → 0.120. With one run per cell this is a description, not evidence that EBD evens out the models.
